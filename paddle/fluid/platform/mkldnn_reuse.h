@@ -649,8 +649,9 @@ class PoolingMKLDNNHandler : public MKLDNNHandler {
                      : mkldnn::prop_kind::forward_training;
         auto pooling_desc = mkldnn::pooling_forward::desc(
             mkldnn_forward_prop_kind,
-            pooling_type_ == "max" ? mkldnn::algorithm::pooling_max
-                                   : mkldnn::algorithm::pooling_avg,
+            pooling_type_ == "max"
+                ? mkldnn::algorithm::pooling_max
+                : mkldnn::algorithm::pooling_avg_include_padding,
             src_md, dst_md, strides, ksize, padding_left_top,
             padding_right_bottom, mkldnn::padding_kind::zero);
 
