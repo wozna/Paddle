@@ -140,16 +140,27 @@ void CPUQuantizeSquashPass::ConvRequantSquash(Graph* graph) const {
     GET_IR_NODE_FROM_SUBGRAPH(conv_out, conv_out, conv_requant_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(requant_op, requant_op, conv_requant_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(requant_out, requant_out, conv_requant_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(next_op, next_op, conv_requant_pattern);
 
+    auto* next_op_desc = next_op->Op();
     // if conv2d has one output squash
     if (conv_out->outputs.size() == 1) {
       float requant_scale_out =
           boost::get<float>(requant_op->Op()->GetAttr("Scale_out"));
       conv_op->Op()->SetAttr("Scale_out", requant_scale_out);
       conv_op->Op()->SetOutput("Output",
-                               std::vector<std::string>({requant_out->Name()}));
-      IR_NODE_LINK_TO(conv_op, requant_out);
-      GraphSafeRemoveNodes(graph, {conv_out, requant_op});
+                               std::vector<std::string>({conv_out->Name()}));
+      auto requant_out_var_name = requant_out->Name();
+      auto next_op_inputs = next_op_desc->InputNames();
+      for (const auto& name : next_op_inputs) {
+        auto input_names = next_op_desc->Input(name);
+        std::replace(input_names.begin(), input_names.end(),
+                     requant_out_var_name, conv_out->Name());
+        next_op_desc->SetInput(name, input_names);
+      }
+
+      IR_NODE_LINK_TO(conv_out, next_op);
+      GraphSafeRemoveNodes(graph, {requant_op, requant_out});
 
       found_requant_squash_count++;
     }

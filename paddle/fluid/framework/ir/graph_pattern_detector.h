@@ -782,6 +782,7 @@ struct ConvConcatReLU : public PatternBase {
 // named nodes:
 // conv_op, conv_out
 // requant_op, requant_out
+// next_op
 struct ConvRequant : public PatternBase {
   ConvRequant(PDPattern* pattern, const std::string& name_scope)
       : PatternBase(pattern, name_scope, "conv_requant") {}
@@ -790,9 +791,9 @@ struct ConvRequant : public PatternBase {
 
   PATTERN_DECL_NODE(conv_op);
   PATTERN_DECL_NODE(conv_out);
-
   PATTERN_DECL_NODE(requant_op);
   PATTERN_DECL_NODE(requant_out);
+  PATTERN_DECL_NODE(next_op);
 };
 
 // Conv + Dequant

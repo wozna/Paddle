@@ -1273,9 +1273,11 @@ PDNode *patterns::ConvRequant::operator()() {
   auto requant_out = pattern->NewNode(requant_out_repr())
                          ->AsOutput()
                          ->assert_is_op_output("requantize", "Output");
+  auto next_op = pattern->NewNode(next_op_repr())->assert_is_op();
 
   conv_op->LinksTo({conv_out});
   requant_op->LinksFrom({conv_out}).LinksTo({requant_out});
+  next_op->LinksFrom({requant_out});
 
   return requant_out;
 }
