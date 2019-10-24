@@ -17,17 +17,25 @@
 #include "paddle/fluid/memory/malloc.h"
 #include "paddle/fluid/operators/conv_op.h"
 #include "paddle/fluid/platform/mkldnn_reuse.h"
+#include "paddle/fluid/framework/eigen.h"
+#include <iostream>
+#include <fstream>
+
 
 namespace paddle {
 namespace operators {
 
 using framework::DataLayout;
+using framework::LoDTensor;
 using mkldnn::memory;
 using mkldnn::primitive;
 using mkldnn::reorder;
 using mkldnn::stream;
 using platform::to_void_cast;
 using platform::GetMKLDNNFormat;
+using platform::CPUPlace;
+using ConstEigenVectorArrayMap =
+    Eigen::Map<const Eigen::Array<float, Eigen::Dynamic, 1>>;
 
 inline void GetWeightsTz(std::vector<int>& weights_tz, int groups,  // NOLINT
                          bool is_conv3d) {
@@ -116,6 +124,211 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
       }
     }
   }
+ 
+ float GetKLScalingFactor(
+    const LoDTensor& var_tensor, bool is_unsigned) const {
+  ConstEigenVectorArrayMap eigen_tensor{var_tensor.data<float>(),
+                                        var_tensor.numel(), 1};
+  int precision_hist_num_bins = 2048;
+  float max_val = eigen_tensor.maxCoeff();
+  float min_val = eigen_tensor.minCoeff();
+  bool is_positive = min_val >= 0.0f;
+  if (is_unsigned)
+    PADDLE_ENFORCE(
+        is_positive,
+        "Tensor is claimed to be unsigned, but its min value (%f) is < 0.0",
+        min_val);
+
+  int num_quantized_bins = 255;
+
+  std::vector<int> hist;
+  float bin_width;
+  int starting_iter;
+  int ending_iter = precision_hist_num_bins - 1;
+  if (is_positive) {
+    std::tie(hist, bin_width) =
+        Histogram(var_tensor, min_val, max_val, precision_hist_num_bins);
+    starting_iter = static_cast<int>(ending_iter * 0.7);
+  } else {
+    float th = std::max(std::abs(max_val), std::abs(min_val));
+    std::tie(hist, bin_width) =
+        Histogram(var_tensor, -th, th, precision_hist_num_bins);
+    starting_iter = 0;
+    if (std::abs(max_val) > std::abs(min_val)) {
+      while (starting_iter < ending_iter) {
+        if (hist[starting_iter] == 0) {
+          ++starting_iter;
+          continue;
+        } else {
+          break;
+        }
+      }
+      starting_iter += static_cast<int>((ending_iter - starting_iter) * 0.6);
+    } else {
+      while (ending_iter > 0) {
+        if (hist[ending_iter] == 0) {
+          --ending_iter;
+          continue;
+        } else {
+          break;
+        }
+      }
+      starting_iter = static_cast<int>(0.6 * ending_iter);
+    }
+  }
+  auto P_sum = eigen_tensor.size();
+  int min_kl_divergence = 0;
+  int min_kl_index = 0;
+  bool kl_inited = false;
+  for (int i = starting_iter; i <= ending_iter; i++) {
+    std::vector<int> reference_distr_P(&hist[0], &hist[i]);
+    auto outliers_count =
+        std::accumulate(&hist[i], &hist[precision_hist_num_bins], 0);
+    if (reference_distr_P[i - 1] == 0) {
+      continue;
+    }
+    reference_distr_P[i - 1] += outliers_count;
+    auto reference_distr_bins = reference_distr_P;
+    std::vector<int> candidate_distr_Q(&hist[0], &hist[i]);
+    int num_merged_bins = i / num_quantized_bins;
+    std::vector<int> candidate_distr_Q_quantized(num_quantized_bins, 0);
+    int j_start = 0;
+    int j_end = num_merged_bins;
+    for (int idx = 0; idx < num_quantized_bins; idx++) {
+      candidate_distr_Q_quantized[idx] = std::accumulate(
+          &candidate_distr_Q[j_start], &candidate_distr_Q[j_end], 0);
+      j_start += num_merged_bins;
+      j_end += num_merged_bins;
+      if ((idx + 1) == num_quantized_bins - 1) {
+        j_end = i;
+      }
+    }
+    candidate_distr_Q =
+        ExpandQuantizedBins(candidate_distr_Q_quantized, reference_distr_bins);
+    int Q_sum =
+        std::accumulate(candidate_distr_Q.begin(), candidate_distr_Q.end(), 0);
+    auto kl_divergence =
+        SafeEntropy(reference_distr_P, P_sum, candidate_distr_Q, Q_sum);
+    if (!kl_inited) {
+      min_kl_divergence = kl_divergence;
+      min_kl_index = i;
+      kl_inited = true;
+    } else if (kl_divergence < min_kl_divergence) {
+      min_kl_divergence = kl_divergence;
+      min_kl_index = i;
+    } else {
+    }
+  }
+  if (min_kl_index == 0) {
+    while (starting_iter > 0) {
+      if (hist[starting_iter] == 0) {
+        starting_iter -= 1;
+        continue;
+      } else {
+        break;
+      }
+    }
+    min_kl_index = starting_iter;
+  }
+
+  return (1.0 / ((min_kl_index + 0.5) * bin_width));
+}
+
+//          for KL Scaling 
+
+static LoDTensor CreateScaleTensor(int64_t channels_num) {
+  LoDTensor scale_tensor;
+  scale_tensor.Resize({channels_num});
+  scale_tensor.mutable_data<double>(CPUPlace());
+  return scale_tensor;
+}
+
+std::pair<std::vector<int>, float> Histogram(
+    const framework::LoDTensor& var_tensor, float min_val, float max_val,
+    size_t num_bins) const {
+  PADDLE_ENFORCE_GT(num_bins, 0,
+                    "MkldnnQuantizer: To calculate Histogram, num_bins (" +
+                        std::to_string(num_bins) + ") must be positive.");
+  PADDLE_ENFORCE_GT(
+      var_tensor.numel(), 0,
+      "MkldnnQuantizer: To calculate Histogram, the tensor must not be empty.");
+  PADDLE_ENFORCE(max_val >= min_val,
+                 "MkldnnQuantizer: To calculate Histogram, max_val (" +
+                     std::to_string(max_val) +
+                     ") must be greater or equal"
+                     "to min_val (" +
+                     std::to_string(min_val) + ").");
+  ConstEigenVectorArrayMap eigen_tensor{var_tensor.data<float>(),
+                                        var_tensor.numel(), 1};
+  auto bin_width = std::abs(max_val - min_val) / num_bins;
+  std::vector<int> hist(num_bins);
+
+  for (int i = 0; i < eigen_tensor.size(); i++) {
+    int bin = std::min(
+        num_bins - 1,
+        static_cast<size_t>(floor((eigen_tensor[i] - min_val) / bin_width)));
+    ++hist[bin];
+  }
+
+  return std::make_pair(std::move(hist), std::move(bin_width));
+}
+
+std::vector<int> ExpandQuantizedBins(
+    std::vector<int> quantized_bins, std::vector<int> reference_bins) const {
+  std::vector<int> expanded_quantized_bins(reference_bins.size(), 0);
+  int num_merged_bins = reference_bins.size() / quantized_bins.size();
+  int j_start = 0;
+  int j_end = num_merged_bins;
+  for (size_t idx = 0; idx < quantized_bins.size(); idx++) {
+    int zero_count =
+        std::count(&reference_bins[j_start], &reference_bins[j_end], 0);
+    num_merged_bins = j_end - j_start;
+    int avg_bin_ele;
+    if (zero_count == num_merged_bins) {
+      avg_bin_ele = 0;
+    } else {
+      avg_bin_ele = quantized_bins[idx] / (num_merged_bins - zero_count + 0.0);
+    }
+    for (int idx1 = j_start; idx1 < j_end; idx1++) {
+      expanded_quantized_bins[idx1] =
+          (reference_bins[idx1] == 0) ? 0 : avg_bin_ele;
+    }
+    j_start += num_merged_bins;
+    j_end += num_merged_bins;
+    if ((idx + 1) == quantized_bins.size() - 1) {
+      j_end = reference_bins.size();
+    }
+  }
+  return expanded_quantized_bins;
+}
+
+float SafeEntropy(
+    std::vector<int> reference_distr_P, int P_sum,
+    std::vector<int> candidate_distr_Q, int Q_sum) const {
+  PADDLE_ENFORCE_EQ(reference_distr_P.size(), candidate_distr_Q.size());
+  float tmp_sum1 = 0;
+  float tmp_sum2 = 0;
+  for (size_t idx = 0; idx < reference_distr_P.size(); idx++) {
+    int p_idx = reference_distr_P[idx];
+    int q_idx = candidate_distr_Q[idx];
+    if (p_idx == 0) {
+      tmp_sum1 += 0;
+      tmp_sum2 += 0;
+    } else {
+      PADDLE_ENFORCE(q_idx != 0, "MkldnnQuantizer: Fatal error!, idx = " +
+                                     std::to_string(idx) +
+                                     " qindex = 0! p_idx = " +
+                                     std::to_string(p_idx));
+    }
+    tmp_sum1 += p_idx * (log(Q_sum * p_idx));
+    tmp_sum2 += p_idx * (log(P_sum * q_idx));
+  }
+  return (tmp_sum1 - tmp_sum2) / P_sum;
+}
+
+
+//           for KL Scaling 
+
 
   void ComputeFP32(const paddle::framework::ExecutionContext& ctx) const {
     const bool is_test = ctx.Attr<bool>("is_test");
@@ -125,6 +338,7 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     const auto& mkldnn_engine = dev_ctx.GetEngine();
 
     auto* input = ctx.Input<Tensor>("Input");
+    auto input_lod = ctx.Input<LoDTensor>("Input");
     auto* filter = ctx.Input<Tensor>("Filter");
     auto* bias = ctx.HasInput("Bias") ? ctx.Input<Tensor>("Bias") : nullptr;
     auto* output = ctx.Output<Tensor>("Output");
@@ -326,6 +540,24 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     pipeline.push_back(*conv_p);
     stream(stream::kind::eager).submit(pipeline).wait();
 
+    auto scale = GetKLScalingFactor(*input_lod, false);
+
+    const std::string input_name = ctx.op().Input("Input");
+    // std::cout << input_name << ' ' << scale << std::endl;
+
+    static std::map<std::string, std::vector<float>> scales;
+    scales[input_name].push_back(scale);
+    if(input_name == "bn5c_branch2b.output.1.tmp_3") {
+        std::cout << "Conv Scale sumup:" << std::endl;
+        for(auto& it : scales) {
+            const std::string& scale_name = it.first;
+            const auto& scale_scales = it.second;
+            std::cout << scale_name;
+            float scale_avg = std::accumulate(scale_scales.begin(), scale_scales.end(), 0.0f);
+            scale_avg /= (float)scale_scales.size();
+            std::cout << ' ' << scale_avg << std::endl; 
+        }
+    }
     output->set_layout(DataLayout::kMKLDNN);
     output->set_format(GetMKLDNNFormat(*dst_memory_p));
   }
@@ -642,6 +874,8 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     if (need_s8_to_u8) {
       output->mutable_data<uint8_t>(ctx.GetPlace());
     }
+
+
     output->set_layout(DataLayout::kMKLDNN);
     output->set_format(GetMKLDNNFormat(*dst_memory_p));
   }
