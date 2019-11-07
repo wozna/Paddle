@@ -16,6 +16,7 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
+import paddle.fluid.core as core
 from paddle.fluid.tests.unittests.op_test import OpTest
 from mkldnn_op_test import format_reorder
 
@@ -23,13 +24,15 @@ from mkldnn_op_test import format_reorder
 class TestTransposeOp(OpTest):
     def setUp(self):
         self.init_op_type()
+        self.init_data_type()
         self.initTestCase()
         self.initInputData()
         self.use_mkldnn = True
+        self._cpu_only = True
         self.axis = (0, 2, 3, 1)
 
         self.inputs = {
-            'X': format_reorder(self.input_data, self.shape)
+            'X': format_reorder(self.input_data, self.shape).astype(np.int8)
         }  #transform data format to 'NHWC' for INT8 transpose specially.
 
         self.attrs = {
@@ -38,22 +41,25 @@ class TestTransposeOp(OpTest):
         }
 
         self.outputs = {
-            'XShape': np.random.random(self.shape).astype('int8'),
+            'XShape': np.random.random(self.shape).astype(np.int8),
             'Out': self.inputs['X'].transpose(self.axis)
         }
 
     def init_op_type(self):
         self.op_type = "transpose2"
+    
+    def init_data_type(self):
+        self.dtype = np.int8
 
     def test_check_output(self):
-        self.check_output(no_check_set=['XShape'])
+        self.check_output_with_place(core.CPUPlace(),1e-5, no_check_set=['XShape'])
 
     def initTestCase(self):
         self.shape = (2, 3, 4, 5)
 
     def initInputData(self):
         self.input_data = (
-            np.random.randint(0, 100, self.shape) - 50).astype('int8')
+            np.random.randint(0, 100, self.shape) - 50).astype(np.int8)
 
 
 class TestINT8Case(TestTransposeOp):
@@ -62,7 +68,7 @@ class TestINT8Case(TestTransposeOp):
 
     def initInputData(self):
         self.input_data = (
-            np.random.randint(0, 100, self.shape) - 50).astype('int8')
+            np.random.randint(0, 100, self.shape) - 50).astype(np.int8)
 
 
 class TestUINT8Case(TestTransposeOp):
@@ -71,7 +77,7 @@ class TestUINT8Case(TestTransposeOp):
 
     def initDataType(self):
         self.input_data = (np.random.randint(0, 100,
-                                             self.shape)).astype('uint8')
+                                             self.shape)).astype(np.uint8)
 
 
 if __name__ == '__main__':

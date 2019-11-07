@@ -402,6 +402,62 @@ void CPUQuantizePass::QuantizeTranspose(Graph* graph) const {
                   quantize_transpose_count);
 }
 
+void CPUQuantizePass::QuantizeReshape(Graph* graph) const {
+  GraphPatternDetector gpd;
+  auto pattern = gpd.mutable_pattern();
+  patterns::Reshape reshape_pattern{pattern, name_scope_};
+  reshape_pattern();
+
+  int quantize_reshape_count = 0;
+  auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
+                     Graph* g) {
+    VLOG(4) << "Quantize reshape op";
+    GET_IR_NODE_FROM_SUBGRAPH(reshape_op, reshape_op, reshape_pattern);
+    auto* reshape_op_desc = reshape_op->Op();
+
+    // skip if should not be quantized
+    if (!reshape_op_desc->HasAttr("use_quantizer") ||
+        !boost::get<bool>(reshape_op_desc->GetAttr("use_quantizer"))) {
+      return;
+    }
+    GET_IR_NODE_FROM_SUBGRAPH(prev_op, prev_op, reshape_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(next_op, next_op, reshape_pattern);
+
+    // skip if prev op is not quantized
+    // in future we should checked if next_op is quantized
+    // reshape INT8 schould be used only between INT8 operators
+    if (!(prev_op->Op()->Type() == "dequantize" ||
+          (prev_op->Op()->HasAttr("use_quantizer") &&
+           boost::get<bool>(prev_op->Op()->GetAttr("use_quantizer"))))) {
+      return;
+    }
+
+    GET_IR_NODE_FROM_SUBGRAPH(reshape_in, reshape_in, reshape_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(reshape_out, reshape_out, reshape_pattern);
+
+    // get scales calculated after warmup, they scale variables to MAX=1.0
+    auto scales = Get<VarQuantScale>("quant_var_scales");
+
+    auto input_scale = scales[reshape_in->Name()].second.data<double>()[0];
+    bool is_input_unsigned = scales[reshape_in->Name()].first;
+    QuantizeInput(g, reshape_op, reshape_in, "X", input_scale,
+                  is_input_unsigned);
+
+    auto output_scale = scales[reshape_out->Name()].second.data<double>()[0];
+    bool is_output_unsigned = scales[reshape_out->Name()].first;
+    DequantizeOutput(g, reshape_op, reshape_out, "Out", output_scale,
+                     is_output_unsigned);
+
+    ++quantize_reshape_count;
+  };
+
+  gpd(graph, handler);
+  AddStatis(quantize_reshape_count);
+
+  PrettyLogDetail("---    quantized %d reshape ops",
+                  quantize_reshape_count);
+}
+
 void CPUQuantizePass::ApplyImpl(ir::Graph* graph) const {
   VLOG(3) << "Quantizing the graph.";
   PADDLE_ENFORCE(graph);
@@ -415,6 +471,7 @@ void CPUQuantizePass::ApplyImpl(ir::Graph* graph) const {
   QuantizeConcat(graph);
   QuantizePriorBox(graph);
   QuantizeTranspose(graph);
+  QuantizeReshape(graph);
 }
 
 }  // namespace ir

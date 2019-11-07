@@ -87,7 +87,7 @@ class DeQuantOpKernel : public framework::OpKernel<T> {
           std::shared_ptr<primitive::at>(new primitive::at(*src_memory));
 
       auto dst_md = platform::MKLDNNMemDesc({dst_tz}, memory::data_type::f32,
-                                            memory::format::nchw);
+                                            platform::MKLDNNFormatForSize(dst_tz.size(), memory::format::nchw));
       auto dst_pd = mkldnn::memory::primitive_desc(dst_md, engine);
       dst_memory = std::make_shared<mkldnn::memory>(
           dst_pd, to_void_cast<float>(output_data));
