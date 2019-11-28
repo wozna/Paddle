@@ -37,6 +37,12 @@ MkldnnQuantizerConfig::MkldnnQuantizerConfig() {
 
   rules_["transpose2"]["X"] = ScaleAlgo::KL;
   rules_["transpose2"]["Out"] = ScaleAlgo::NONE;
+
+  rules_["reshape2"]["X"] = ScaleAlgo::KL;
+  rules_["reshape2"]["Shape"] = ScaleAlgo::NONE;
+  rules_["reshape2"]["ShapeTensor"] = ScaleAlgo::NONE;
+  rules_["reshape2"]["XShape"] = ScaleAlgo::NONE;
+  rules_["reshape2"]["Out"] = ScaleAlgo::NONE;
 }
 
 ScaleAlgo MkldnnQuantizerConfig::scale_algo(
