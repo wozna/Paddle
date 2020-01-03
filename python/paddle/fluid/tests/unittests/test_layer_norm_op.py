@@ -112,13 +112,11 @@ class TestLayerNormOp(unittest.TestCase):
     def __assert_close(self, tensor, np_array, msg, atol=1e-4):
         self.assertTrue(np.allclose(np.array(tensor), np_array, atol=atol), msg)
 
-    def check_forward_backward(self,
-                               shape,
-                               begin_norm_axis,
-                               has_scale=True,
-                               has_bias=True,
-                               y_grad_scale=1.0):
-        def test_with_place(place, shape, begin_norm_axis):
+    def check_forward_backward(self, shape, begin_norm_axis, use_mkldnn=False):
+        def test_with_place(place,
+                            shape,
+                            begin_norm_axis,
+                            use_mkldnn=use_mkldnn):
             # attr
             epsilon = 0.00001
             x_shape = shape
@@ -181,7 +179,8 @@ class TestLayerNormOp(unittest.TestCase):
                     },
                     attrs={
                         "epsilon": epsilon,
-                        "begin_norm_axis": begin_norm_axis
+                        "begin_norm_axis": begin_norm_axis,
+                        "use_mkldnn": use_mkldnn
                     })
                 # generate backward op_desc
                 grad_op_desc_list, op_grad_to_var = core.get_grad_op_desc(
