@@ -277,6 +277,31 @@ inline mkldnn::memory::format_tag GetMKLDNNFormat(const mkldnn::memory memory) {
   return GetMKLDNNFormat(mem_desc);
 }
 
+inline void printMKLDNNFormat(const mkldnn::memory::desc mem_desc) {
+  auto ndims = mem_desc.data.ndims;
+  auto dims = mem_desc.data.dims;
+  auto strides = mem_desc.data.format_desc.blocking.strides;
+  auto inner_nblks = mem_desc.data.format_desc.blocking.inner_nblks;
+  auto inner_blks = mem_desc.data.format_desc.blocking.inner_blks;
+  auto inner_idxs = mem_desc.data.format_desc.blocking.inner_idxs;
+
+  std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" << std::endl;
+  std::cout << "NDIMS: " << ndims << std::endl;
+  std::cout << "INNER_NBLKS: " << inner_nblks << std::endl;
+  for (int i = 0; i < ndims; ++i) {
+    std::cout << "DIM[" << i << "]: " << dims[i] << std::endl;
+  }
+  for (int i = 0; i < ndims; ++i) {
+    std::cout << "STRIDE[" << i << "]: " << strides[i] << std::endl;
+  }
+  for (int i = 0; i < inner_nblks; ++i) {
+    std::cout << "INNER_BLKS[" << i << "]: " << inner_blks[i] << std::endl;
+  }
+  for (int i = 0; i < inner_nblks; ++i) {
+    std::cout << "INNER_IDXS[" << i << "]: " << inner_idxs[i] << std::endl;
+  }
+}
+
 inline MKLDNNMemoryFormat MKLDNNFormatForSize(size_t dims_size,
                                               MKLDNNMemoryFormat data_format) {
   if (dims_size == 1) {

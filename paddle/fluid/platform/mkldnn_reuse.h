@@ -612,6 +612,54 @@ class ActivationMKLDNNHandler
 };
 
 template <typename T>
+class LayerNormMKLDNNHandler
+    : public platform::MKLDNNHandlerT<T, dnnl::layer_normalization_forward> {
+ public:
+  LayerNormMKLDNNHandler(const std::vector<int64_t>& dims, const float& epsilon,
+                         const dnnl::normalization_flags& flags,
+                         const bool& is_test, const MKLDNNMemoryFormat fmt,
+                         const platform::MKLDNNDeviceContext& dev_ctx,
+                         platform::Place cpu_place,
+                         const std::string& uniq_name)
+      : platform::MKLDNNHandlerT<T, dnnl::layer_normalization_forward>(
+            dev_ctx, dev_ctx.GetEngine(), cpu_place,
+            platform::CreateKey(dims, uniq_name)) {
+    auto md = dnnl::memory::desc(dims, MKLDNNGetDataType<T>(), fmt);
+    if (!is_test) {
+      // TODO(grygielski) Delete forcing stats_md after DNNL 1.2 is introduced
+      auto stats_md = dnnl::memory::desc(
+          {begin(dims), end(dims) - 1}, MKLDNNGetDataType<T>(),
+          MKLDNNFormatForSize(dims.size() - 1, MKLDNNMemoryFormat::nchw));
+      this->AcquireForwardPrimitiveDescriptor(dnnl::prop_kind::forward_training,
+                                              md, stats_md, epsilon, flags);
+    } else {
+      this->AcquireForwardPrimitiveDescriptor(
+          dnnl::prop_kind::forward_inference, md, epsilon, flags);
+    }
+  }
+
+  std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory(T* scaleshift_data) {
+    return this->AcquireMemoryFromPrimitive(
+        this->fwd_pd_->weights_desc(), scaleshift_data, "@scaleshift_mem_p");
+  }
+
+  std::shared_ptr<dnnl::memory> AcquireMeanMemory(framework::Tensor* mean) {
+    T* mean_data = mean->mutable_data<T>(this->place_,
+                                         this->fwd_pd_->mean_desc().get_size());
+    return this->AcquireMemoryFromPrimitive(this->fwd_pd_->mean_desc(),
+                                            mean_data, "@mean_mem_p");
+  }
+
+  std::shared_ptr<dnnl::memory> AcquireVarianceMemory(
+      framework::Tensor* variance) {
+    T* variance_data = variance->mutable_data<T>(
+        this->place_, this->fwd_pd_->variance_desc().get_size());
+    return this->AcquireMemoryFromPrimitive(this->fwd_pd_->variance_desc(),
+                                            variance_data, "@variance_mem_p");
+  }
+};
+
+template <typename T>
 class LRNMKLDNNHandler
     : public MKLDNNHandlerT<T, mkldnn::lrn_forward, mkldnn::lrn_backward> {
  public:
