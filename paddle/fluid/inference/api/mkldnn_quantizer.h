@@ -94,6 +94,8 @@ class AnalysisPredictor::MkldnnQuantizer {
   float SafeEntropy(std::vector<int> reference_distr_P, int P_sum,
                     std::vector<int> candidate_distr_Q, int Q_sum) const;
 
+  bool CheckIfAllInputsUnsigned(const framework::OpDesc* op);
+
  private:
   AnalysisPredictor& predictor_;
   const MkldnnQuantizerConfig* qconfig_;
