@@ -108,6 +108,8 @@ bool AnalysisPredictor::MkldnnQuantizer::CalculateScales() {
                 scales_[var_name] = {is_unsigned, scale_tensor};
                 compute_scale = false;
               }
+            } else if (op->Type() == "matmul") {
+              is_unsigned = CheckIfAllInputsUnsigned(op);
             }
             if (compute_scale)
               CalculateSingleScale(op->Type(), conn.first, var_name,
@@ -122,6 +124,24 @@ bool AnalysisPredictor::MkldnnQuantizer::CalculateScales() {
     }
   }
 
+  return true;
+}
+
+bool AnalysisPredictor::MkldnnQuantizer::CheckIfAllInputsUnsigned(
+    const framework::OpDesc* op) {
+  for (auto const& inputs : op->Inputs()) {
+    for (const auto& var_name : inputs.second) {
+      auto* var = predictor_.sub_scope_->FindVar(var_name);
+      PADDLE_ENFORCE(var, "%s is not in the scope", var_name);
+      PADDLE_ENFORCE(var->IsType<LoDTensor>(), "Only support lod tensor now.");
+      LoDTensor* var_tensor = var->GetMutable<LoDTensor>();
+      ConstEigenVectorArrayMap eigen_tensor{var_tensor->data<float>(),
+                                            var_tensor->numel(), 1};
+      float min_val = eigen_tensor.minCoeff();
+      bool is_positive = min_val >= 0.0f;
+      if (!is_positive) return false;
+    }
+  }
   return true;
 }
 
@@ -204,12 +224,15 @@ AnalysisPredictor::MkldnnQuantizer::GetKLScalingFactor(
   float max_val = eigen_tensor.maxCoeff();
   float min_val = eigen_tensor.minCoeff();
   bool is_positive = min_val >= 0.0f;
-  if (is_unsigned)
+  if (is_unsigned) {
     PADDLE_ENFORCE(
         is_positive,
         "Tensor is claimed to be unsigned, but its min value (%f) is < 0.0",
         min_val);
-
+  } else if (is_positive) {
+    is_positive = is_unsigned;
+    VLOG(3) << "Values are positive, but signed values are expected";
+  }
   int num_quantized_bins = 255;
 
   std::vector<int> hist;
