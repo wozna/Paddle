@@ -190,6 +190,53 @@ double CPUQuantizePass::GetScaleValueForNode(const Node* node,
   return scale_data.second.data<double>()[0];
 }
 
+void CPUQuantizePass::RelocateScaleOp(Graph* graph) const {
+  GraphPatternDetector gpd;
+  patterns::ReshapeTransposeScale scale_pattern{gpd.mutable_pattern(),
+                                                "reshape_transpose_scale"};
+  scale_pattern();
+
+  int found_scale_replacement_count = 0;
+  auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
+                     Graph* g) {
+    VLOG(4) << "replace scale op";
+
+    GET_IR_NODE_FROM_SUBGRAPH(reshape_in, reshape_in, scale_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(reshape_op, reshape_op, scale_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(transpose_out, transpose_out, scale_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(scale_op, scale_op, scale_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(scale_out, scale_out, scale_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(next_op, next_op, scale_pattern);
+
+    std::string next_op_input_name;
+    for (auto name : next_op->Op()->InputNames())
+      for (auto input_name : next_op->Op()->Input(name))
+        if (input_name == scale_out->Name()) next_op_input_name = name;
+    std::cout << next_op_input_name << " is override \n";
+    PADDLE_ENFORCE_NE(
+        next_op_input_name.empty(), true,
+        platform::errors::NotFound("Operator after scale operator "
+                                   "should has scale output as input"));
+
+    UnlinkNodes(transpose_out, scale_op);
+    UnlinkNodes(reshape_in, reshape_op);
+    next_op->Op()->SetInput(next_op_input_name,
+                            std::vector<std::string>({transpose_out->Name()}));
+    IR_NODE_LINK_TO(transpose_out, next_op);
+    scale_op->Op()->SetInput("X",
+                             std::vector<std::string>({reshape_in->Name()}));
+    IR_NODE_LINK_TO(reshape_in, scale_op);
+    reshape_op->Op()->SetInput("X",
+                               std::vector<std::string>({scale_out->Name()}));
+    IR_NODE_LINK_TO(scale_out, reshape_op);
+
+    found_scale_replacement_count++;
+  };
+  gpd(graph, handler);
+  AddStatis(found_scale_replacement_count);
+  PrettyLogDetail("---    replaced %d scale", found_scale_replacement_count);
+}
+
 void CPUQuantizePass::QuantizeConv(Graph* graph,
                                    bool with_residual_data) const {
   GraphPatternDetector gpd;
@@ -536,7 +583,7 @@ void CPUQuantizePass::ApplyImpl(ir::Graph* graph) const {
   FusePassBase::Init(name_scope_, graph);
 
   PADDLE_ENFORCE(param_scope());
-
+  RelocateScaleOp(graph);
   QuantizeConv(graph, false /* with_residual_data */);
   QuantizeConv(graph, true /* with_residual_data */);
   QuantizePool(graph);
