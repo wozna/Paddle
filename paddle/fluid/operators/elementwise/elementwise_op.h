@@ -155,6 +155,12 @@ class ElementwiseOpMaker : public framework::OpProtoAndCheckerMaker {
     AddAttr<float>("Scale_out",
                    "(float, default 1.0f), The quantize scale of output data")
         .SetDefault(1.0f);
+    AddAttr<bool>(
+         "use_bfloat16",
+         "(bool, default false) "
+         "Set to true for operators that should be converted to bfloat16 kernel"
+         "Only used on CPU.")
+         .SetDefault(false);
     AddOpComment();
   }
 

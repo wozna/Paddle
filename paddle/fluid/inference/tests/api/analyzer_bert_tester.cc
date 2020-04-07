@@ -155,6 +155,7 @@ void profile(bool use_mkldnn = false) {
   SetConfig(&config);
 
   if (use_mkldnn) {
+    config.SwitchIrDebug();
     config.EnableMKLDNN();
     config.EnableMkldnnBFloat16();
   }
@@ -189,6 +190,7 @@ void compare(bool use_mkldnn = false) {
   AnalysisConfig q_cfg;
   SetConfig(&q_cfg);
   if (use_mkldnn) {
+    q_cfg.SwitchIrDebug();
     q_cfg.EnableMKLDNN();
     q_cfg.EnableMkldnnBFloat16();
   }

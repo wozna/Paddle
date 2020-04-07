@@ -506,7 +506,7 @@ static void ExecuteFc(const MKLDNNDeviceContext& dev_ctx,
   constexpr bool is_int8 =
       std::is_same<T_in, int8_t>::value || std::is_same<T_in, uint8_t>::value;
   bool is_bfloat16 = std::is_same<T_in, paddle::platform::bfloat16>::value;
-  if (!is_int8 || force_fp32_output) {
+  if ((!is_int8 && !is_bfloat16) || force_fp32_output) {
     GetPrimitiveFactory<T_in, T_w, float>(dev_ctx, ctx, input, w, mkldnn_engine)
         ->ExecuteFcPrimitive(input, w, bias, output, ctx);
   } else if (is_bfloat16) {

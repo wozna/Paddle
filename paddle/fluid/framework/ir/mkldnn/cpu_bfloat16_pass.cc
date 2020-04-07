@@ -43,93 +43,94 @@ void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph) const {
     GET_IR_NODE_FROM_SUBGRAPH(prev_op, prev_op, bfloat16_ops);
     GET_IR_NODE_FROM_SUBGRAPH(op_in, op_in, bfloat16_ops);
     GET_IR_NODE_FROM_SUBGRAPH(op, op, bfloat16_ops);
-    if (op->Op()->GetAttrIfExists<bool>("use_bfloat16") && op->Op()->Type() != "conv2d" && prev_op->Op()->Type()!="quantize") {
-       
-       auto inputs = op->inputs;
-       OpDesc q_desc;
-        q_desc.SetType("quantize");
-       std::vector<Node*> quantize_out_nodes(inputs.size());
-       std::vector<std::string> quantize_out_node_names(inputs.size());
+    if (op->Op()->GetAttrIfExists<bool>("use_bfloat16") && op->Op()->Type() != "conv2d" && prev_op->Op()->Type() != "quantize") {
+       /*
+      //  auto inputs = op->inputs;
+      //  OpDesc q_desc;
+      //   q_desc.SetType("quantize");
+      //  std::vector<Node*> quantize_out_nodes(inputs.size());
+      //  std::vector<std::string> quantize_out_node_names(inputs.size());
 
-         for (size_t i = 0; i < inputs.size(); i++) {
-                       std::string op_input_name;
-            for (auto name : op->Op()->InputNames()) {
-              for (auto input_name : op->Op()->Input(name)) {
-                if (input_name == inputs[i]->Name()) op_input_name = name;
-              }
-            }
+      //    for (size_t i = 0; i < inputs.size(); i++) {
+      //                  std::string op_input_name;
+      //       for (auto name : op->Op()->InputNames()) {
+      //         for (auto input_name : op->Op()->Input(name)) {
+      //           if (input_name == inputs[i]->Name()) op_input_name = name;
+      //         }
+      //       }
 
-            PADDLE_ENFORCE_NE(
-                        op_input_name.empty(), true,
-                        platform::errors::NotFound(
-                            "Operator before operator should have input as op output"));
-            if(op_input_name== "Bias" || op_input_name == "W"){
-              continue;
-            }
+      //       PADDLE_ENFORCE_NE(
+      //                   op_input_name.empty(), true,
+      //                   platform::errors::NotFound(
+      //                       "Operator before operator should have input as op output"));
+      //       if(op_input_name== "Bias" || op_input_name == "W"){
+      //         continue;
+      //       }
 
-            // Create quantize output variable
-            VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
-            quantize_out_nodes[i] = g->CreateVarNode(&quantize_out_desc);
-            quantize_out_node_names[i] = quantize_out_nodes[i]->Name();
+      //       Create quantize output variable
+      //       VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
+      //       quantize_out_nodes[i] = g->CreateVarNode(&quantize_out_desc);
+      //       quantize_out_node_names[i] = quantize_out_nodes[i]->Name();
 
-            q_desc.SetAttr("Scale", 1.f);
-            q_desc.SetInput("Input", std::vector<std::string>({inputs[i]->Name()}));
-            q_desc.SetAttr("bfloat16", true);
-            q_desc.SetAttr("output_format",
+      //       q_desc.SetAttr("Scale", 1.f);
+      //       q_desc.SetInput("Input", std::vector<std::string>({inputs[i]->Name()}));
+      //       q_desc.SetAttr("bfloat16", true);
+      //       q_desc.SetAttr("output_format",
+      //            Has("data_layout") ? Get<std::string>("data_layout") : "NCHW");
+      //       q_desc.SetOutput("Output",
+      //                       std::vector<std::string>({quantize_out_node_names[i]}));
+      //       auto quantize_op = g->CreateOpNode(&q_desc);  // OpDesc will be copied.
+
+
+
+      //       op->Op()->SetInput(op_input_name,
+      //                         std::vector<std::string>({quantize_out_node_names[i]}));
+
+      //       quantize_counter++;
+      //       link quantize op
+      //       UnlinkNodes(inputs[i], op);
+      //       IR_NODE_LINK_TO(inputs[i], quantize_op);
+      //       IR_NODE_LINK_TO(quantize_op, quantize_out_nodes[i]);
+      //       IR_NODE_LINK_TO(quantize_out_nodes[i], op);
+      //     }*/
+
+        VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
+          auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
+
+          // create a quantize op node
+          OpDesc q_desc;
+          q_desc.SetType("quantize");
+          q_desc.SetInput("Input", std::vector<std::string>({op_in->Name()}));
+          q_desc.SetOutput("Output",
+                          std::vector<std::string>({quantize_out_node->Name()}));
+          q_desc.SetAttr("Scale", 1.f);
+          q_desc.SetAttr("bfloat16", true);
+          q_desc.SetAttr("output_format",
                  Has("data_layout") ? Get<std::string>("data_layout") : "NCHW");
-            q_desc.SetOutput("Output",
-                            std::vector<std::string>({quantize_out_node_names[i]}));
-            auto quantize_op = g->CreateOpNode(&q_desc);  // OpDesc will be copied.
+          auto quantize_op = g->CreateOpNode(&q_desc);  // OpDesc will be copied.
 
-
-
-            op->Op()->SetInput(op_input_name,
-                              std::vector<std::string>({quantize_out_node_names[i]}));
-
-            quantize_counter++;
-            // link quantize op
-            UnlinkNodes(inputs[i], op);
-            IR_NODE_LINK_TO(inputs[i], quantize_op);
-            IR_NODE_LINK_TO(quantize_op, quantize_out_nodes[i]);
-            IR_NODE_LINK_TO(quantize_out_nodes[i], op);
+          std::string op_input_name;
+          for (auto name : op->Op()->InputNames()) {
+            for (auto input_name : op->Op()->Input(name)) {
+              if (input_name == op_in->Name()) op_input_name = name;
+            }
           }
 
-        // VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
-        //   auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
+          PADDLE_ENFORCE_NE(
+              op_input_name.empty(), true,
+              platform::errors::NotFound(
+                  "Operator before operator should have input as op output"));
 
-        //   // create a quantize op node
-        //   OpDesc q_desc;
-        //   q_desc.SetType("quantize");
-        //   q_desc.SetInput("Input", std::vector<std::string>({op_in->Name()}));
-        //   q_desc.SetOutput("Output",
-        //                   std::vector<std::string>({quantize_out_node->Name()}));
-        //   q_desc.SetAttr("Scale", 1.f);
-        //   q_desc.SetAttr("bfloat16", true);
-        //   q_desc.SetAttr("output_format",
-        //          Has("data_layout") ? Get<std::string>("data_layout") : "NCHW");
-        //   auto quantize_op = g->CreateOpNode(&q_desc);  // OpDesc will be copied.
+          op->Op()->SetInput(op_input_name,
+                            std::vector<std::string>({quantize_out_node->Name()}));
+          std::cout << prev_op->Op()->Type() << " quantize added before " << op->Op()->Type() << " " << op_input_name << std::endl;
 
-        //   std::string op_input_name;
-        //   for (auto name : op->Op()->InputNames()) {
-        //     for (auto input_name : op->Op()->Input(name)) {
-        //       if (input_name == op_in->Name()) op_input_name = name;
-        //     }
-        //   }
-
-        //   PADDLE_ENFORCE_NE(
-        //       op_input_name.empty(), true,
-        //       platform::errors::NotFound(
-        //           "Operator before operator should have input as op output"));
-
-        //   op->Op()->SetInput(op_input_name,
-        //                     std::vector<std::string>({quantize_out_node->Name()}));
-
-        //   // link quantize op
-        //   UnlinkNodes(op_in, op);
-        //   IR_NODE_LINK_TO(op_in, quantize_op);
-        //   IR_NODE_LINK_TO(quantize_op, quantize_out_node);
-        //   IR_NODE_LINK_TO(quantize_out_node, op);
-        //   quantize_counter++;
+          // link quantize op
+          UnlinkNodes(op_in, op);
+          IR_NODE_LINK_TO(op_in, quantize_op);
+          IR_NODE_LINK_TO(quantize_op, quantize_out_node);
+          IR_NODE_LINK_TO(quantize_out_node, op);
+          quantize_counter++;
       }
   };
   gpd(graph, handler);
