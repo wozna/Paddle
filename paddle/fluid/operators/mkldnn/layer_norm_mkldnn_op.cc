@@ -86,12 +86,15 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
 
         // MKLDNN requires a single piece of memory for scale and shift/bias data
         scaleshift_data.reserve(2 * C);
-        scaleshift_data.insert(scaleshift_data.begin(), scale->data<T>(),
-                              scale->data<T>() + C);
-        scaleshift_data.insert(scaleshift_data.end(), bias->data<T>(),
-                              bias->data<T>() + C);
+        scaleshift_data.insert(scaleshift_data.begin(), scale->data<float>(),
+                              scale->data<float>() + C);
+
+        scaleshift_data.insert(scaleshift_data.end(), bias->data<float>(),
+                              bias->data<float>() + C);
+
         scaleshift_memory =
           handler.AcquireScaleShiftMemory(scaleshift_data.data());
+
       }
       args.insert({DNNL_ARG_SCALE_SHIFT, *scaleshift_memory});
     }
@@ -109,4 +112,5 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
 
 namespace ops = paddle::operators;
 REGISTER_OP_KERNEL(layer_norm, MKLDNN, ::paddle::platform::CPUPlace,
-                   ops::LayerNormMKLDNNOpKernel<float>);
+                   ops::LayerNormMKLDNNOpKernel<float>,
+                   ops::LayerNormMKLDNNOpKernel<paddle::platform::bfloat16>);

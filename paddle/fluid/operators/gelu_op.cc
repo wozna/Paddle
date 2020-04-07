@@ -111,6 +111,12 @@ class GeluOpMaker : public framework::OpProtoAndCheckerMaker {
     AddAttr<bool>("use_mkldnn",
                   "(bool, default false) Only used in mkldnn kernel")
         .SetDefault(false);
+    AddAttr<bool>(
+        "use_bfloat16",
+        "(bool, default false) "
+        "Set to true for operators that should be converted to bfloat16 kernel"
+        "Only used on CPU.")
+        .SetDefault(false);   
     AddAttr<bool>("use_cudnn",
                   "(bool, default false) Only used in cudnn kernel, need "
                   "install cudnn")
