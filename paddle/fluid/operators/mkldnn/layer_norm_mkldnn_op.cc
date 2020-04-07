@@ -45,18 +45,7 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     const bool with_scaleshift = (scale && bias);
     dnnl::normalization_flags flags{};
 
-    std::vector<T> scaleshift_data;
     if (with_scaleshift) {
-      auto scale_tz = paddle::framework::vectorize(scale->dims());
-      const unsigned int C = scale_tz[0];
-
-      // MKLDNN requires a single piece of memory for scale and shift/bias data
-      scaleshift_data.reserve(2 * C);
-      scaleshift_data.insert(scaleshift_data.begin(), scale->data<T>(),
-                             scale->data<T>() + C);
-      scaleshift_data.insert(scaleshift_data.end(), bias->data<T>(),
-                             bias->data<T>() + C);
-
       flags |= dnnl::normalization_flags::use_scale_shift;
     }
 
@@ -89,8 +78,21 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     }
 
     if (with_scaleshift) {
-      auto scaleshift_memory =
+      auto scaleshift_memory = handler.AcquireScaleShiftMemory();
+      if (scaleshift_memory == nullptr || !is_test) {
+        std::vector<T> scaleshift_data;
+        auto scale_tz = paddle::framework::vectorize(scale->dims());
+        const unsigned int C = scale_tz[0];
+
+        // MKLDNN requires a single piece of memory for scale and shift/bias data
+        scaleshift_data.reserve(2 * C);
+        scaleshift_data.insert(scaleshift_data.begin(), scale->data<T>(),
+                              scale->data<T>() + C);
+        scaleshift_data.insert(scaleshift_data.end(), bias->data<T>(),
+                              bias->data<T>() + C);
+        scaleshift_memory =
           handler.AcquireScaleShiftMemory(scaleshift_data.data());
+      }
       args.insert({DNNL_ARG_SCALE_SHIFT, *scaleshift_memory});
     }
 

@@ -184,6 +184,10 @@ class MKLDNNHandlerT {
     }
   }
 
+  std::shared_ptr<mkldnn::memory> AcquireMemoryFromPrimitive(const std::string& suffix) {
+    return std::static_pointer_cast<mkldnn::memory>(dev_ctx_.GetBlob(key_ + suffix));
+  }
+
   std::shared_ptr<mkldnn::memory> AcquireMemoryFromPrimitive(
       mkldnn::memory::desc md, void* ptr, const std::string& suffix) {
     const auto local_key = key_ + suffix;
@@ -636,6 +640,10 @@ class LayerNormMKLDNNHandler
       this->AcquireForwardPrimitiveDescriptor(
           dnnl::prop_kind::forward_inference, md, epsilon, flags);
     }
+  }
+
+  std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory() {
+    return this->AcquireMemoryFromPrimitive("@scaleshift_mem_p");
   }
 
   std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory(T* scaleshift_data) {
