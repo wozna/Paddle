@@ -166,7 +166,8 @@ framework::OpKernelType ConvOp::GetExpectedKernelType(
 #endif
 
   if (input_data_type != framework::proto::VarType::INT8 &&
-      input_data_type != framework::proto::VarType::UINT8) {
+      input_data_type != framework::proto::VarType::UINT8 &&
+      input_data_type != framework::proto::VarType::BF16) {
     auto filter_data_type = ctx.Input<Tensor>("Filter")->type();
     PADDLE_ENFORCE_EQ(input_data_type, filter_data_type,
                       platform::errors::InvalidArgument(
@@ -278,6 +279,12 @@ void Conv2DOpMaker::Make() {
       .SetDefault(false);
   AddAttr<bool>("use_mkldnn",
                 "(bool, default false) Only used in mkldnn kernel")
+      .SetDefault(false);
+  AddAttr<bool>(
+      "use_bfloat16",
+      "(bool, default false) "
+      "Set to true for operators that should be converted to bfloat16 kernel"
+      "Only used on CPU.")
       .SetDefault(false);
   AddAttr<bool>("use_quantizer",
                 "(bool, default false) "
