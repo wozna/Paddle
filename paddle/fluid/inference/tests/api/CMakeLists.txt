@@ -53,6 +53,16 @@ function(inference_analysis_api_int8_test_run TARGET_NAME test_binary model_dir 
 	     --iterations=2)
 endfunction()
 
+function(inference_analysis_api_bfloat16_test_run TARGET_NAME test_binary model_dir data_path)
+	inference_analysis_test_run(${TARGET_NAME}
+	COMMAND ${test_binary}
+        ARGS --infer_model=${model_dir}/model
+             --infer_data=${data_path}
+             --batch_size=50
+             --paddle_num_threads=${CPU_NUM_THREADS_ON_CI}
+	     --iterations=2)
+endfunction()
+
 function(inference_analysis_api_int8_test_run_custom_warmup_batch_size TARGET_NAME test_binary model_dir data_path warmup_batch_size)
     set(WARMUP_BATCH_SIZE ${warmup_batch_size})
     inference_analysis_api_int8_test_run(${TARGET_NAME} ${test_binary} ${model_dir} ${data_path})
@@ -64,6 +74,16 @@ function(inference_analysis_api_object_dection_int8_test_run TARGET_NAME test_bi
         ARGS --infer_model=${model_dir}/model
              --infer_data=${data_path}
              --warmup_batch_size=10
+             --batch_size=300
+             --paddle_num_threads=${CPU_NUM_THREADS_ON_CI}
+	     --iterations=1)
+endfunction()
+
+function(inference_analysis_api_object_dection_bfloat16_test_run TARGET_NAME test_binary model_dir data_path)
+	inference_analysis_test_run(${TARGET_NAME}
+	COMMAND ${test_binary}
+        ARGS --infer_model=${model_dir}/model
+             --infer_data=${data_path}
              --batch_size=300
              --paddle_num_threads=${CPU_NUM_THREADS_ON_CI}
 	     --iterations=1)
@@ -256,20 +276,31 @@ if(WITH_MKLDNN)
   set(INT8_IMG_CLASS_TEST_APP_SRC "analyzer_int8_image_classification_tester.cc")
   inference_analysis_api_test_build(${INT8_IMG_CLASS_TEST_APP} ${INT8_IMG_CLASS_TEST_APP_SRC})
 
+    # build test binary to be used in subsequent tests
+  set(BF16_IMG_CLASS_TEST_APP "test_analyzer_bfloat16_image_classification")
+  set(BF16_IMG_CLASS_TEST_APP_SRC "analyzer_bfloat16_image_classification_tester.cc")
+  inference_analysis_api_test_build(${BF16_IMG_CLASS_TEST_APP} ${BF16_IMG_CLASS_TEST_APP_SRC})
+
   # resnet50 int8
   set(INT8_RESNET50_MODEL_DIR "${INT8_DATA_DIR}/resnet50")
   download_int8_data(${INT8_RESNET50_MODEL_DIR} "resnet50_int8_model.tar.gz" )
   inference_analysis_api_int8_test_run(test_analyzer_int8_resnet50 ${INT8_IMG_CLASS_TEST_APP} ${INT8_RESNET50_MODEL_DIR} ${IMAGENET_DATA_PATH})
+
+  inference_analysis_api_bfloat16_test_run(test_analyzer_bfloat16_resnet50 ${BF16_IMG_CLASS_TEST_APP} ${INT8_RESNET50_MODEL_DIR} ${IMAGENET_DATA_PATH})
 
   # mobilenetv1 int8
   set(INT8_MOBILENETV1_MODEL_DIR "${INT8_DATA_DIR}/mobilenetv1")
   download_int8_data(${INT8_MOBILENETV1_MODEL_DIR} "mobilenetv1_int8_model.tar.gz" )
   inference_analysis_api_int8_test_run(test_analyzer_int8_mobilenetv1 ${INT8_IMG_CLASS_TEST_APP} ${INT8_MOBILENETV1_MODEL_DIR} ${IMAGENET_DATA_PATH})
  
+  inference_analysis_api_bfloat16_test_run(test_analyzer_bfloat16_mobilenetv1 ${BF16_IMG_CLASS_TEST_APP} ${INT8_MOBILENETV1_MODEL_DIR} ${IMAGENET_DATA_PATH})
+
   # mobilenetv2 int8
   set(INT8_MOBILENETV2_MODEL_DIR "${INT8_DATA_DIR}/mobilenetv2")
   download_int8_data(${INT8_MOBILENETV2_MODEL_DIR} "mobilenet_v2_int8_model.tar.gz" )
   inference_analysis_api_int8_test_run(test_analyzer_int8_mobilenetv2 ${INT8_IMG_CLASS_TEST_APP} ${INT8_MOBILENETV2_MODEL_DIR} ${IMAGENET_DATA_PATH})
+ 
+  inference_analysis_api_bfloat16_test_run(test_analyzer_bfloat16_mobilenetv2 ${BF16_IMG_CLASS_TEST_APP} ${INT8_MOBILENETV1_MODEL_DIR} ${IMAGENET_DATA_PATH})
  
   # resnet101 int8
   # TODO(grygielski) Enable after MKL-DNN 1.0 merge
@@ -294,6 +325,8 @@ if(WITH_MKLDNN)
   download_int8_data(${INT8_GOOGLENET_MODEL_DIR} "GoogleNet_int8_model.tar.gz" )
   inference_analysis_api_int8_test_run_custom_warmup_batch_size(test_analyzer_int8_googlenet ${INT8_IMG_CLASS_TEST_APP} ${INT8_GOOGLENET_MODEL_DIR} ${IMAGENET_DATA_PATH} 10)
 
+  inference_analysis_api_bfloat16_test_run(test_analyzer_bfloat16_googlenet ${BF16_IMG_CLASS_TEST_APP} ${INT8_GOOGLENET_MODEL_DIR} ${IMAGENET_DATA_PATH})
+
   ### Object detection models
   set(PASCALVOC_DATA_PATH "${INT8_DATA_DIR}/pascalvoc_val_head_300.bin")
   set(INT8_OBJ_DETECT_TEST_APP "test_analyzer_int8_object_detection")
@@ -310,6 +343,18 @@ if(WITH_MKLDNN)
   set(INT8_MOBILENET_SSD_MODEL_DIR "${INT8_DATA_DIR}/mobilenet-ssd")
   download_int8_data(${INT8_MOBILENET_SSD_MODEL_DIR} "mobilenet_ssd_int8_model.tar.gz" )
   inference_analysis_api_object_dection_int8_test_run(test_analyzer_int8_mobilenet_ssd ${INT8_OBJ_DETECT_TEST_APP} ${INT8_MOBILENET_SSD_MODEL_DIR} ${PASCALVOC_DATA_PATH})
+
+  ### Object detection models BF16
+  set(BF16_DATA_DIR "${INFERENCE_DEMO_INSTALL_DIR}/bfloat16")
+
+  set(BF16_OBJ_DETECT_TEST_APP "test_analyzer_bfloat16_object_detection")
+  set(BF16_OBJ_DETECT_TEST_APP_SRC "analyzer_bfloat16_object_detection_tester.cc")
+
+  # build test binary to be used in subsequent tests
+  inference_analysis_api_test_build(${BF16_OBJ_DETECT_TEST_APP} ${BF16_OBJ_DETECT_TEST_APP_SRC})
+
+  # mobilenet-ssd bf16
+  inference_analysis_api_object_dection_bfloat16_test_run(test_analyzer_bfloat16_mobilenet_ssd ${BF16_OBJ_DETECT_TEST_APP} ${INT8_MOBILENET_SSD_MODEL_DIR} ${PASCALVOC_DATA_PATH})
 
   ### optimized FP32 vs. QAT INT8 tests
   

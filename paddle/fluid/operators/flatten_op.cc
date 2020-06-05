@@ -284,6 +284,8 @@ REGISTER_OP_CPU_KERNEL(
     ops::Flatten2Kernel<paddle::platform::CPUDeviceContext, double>,
     ops::Flatten2Kernel<paddle::platform::CPUDeviceContext, int>,
     ops::Flatten2Kernel<paddle::platform::CPUDeviceContext, int8_t>,
+    ops::Flatten2Kernel<paddle::platform::CPUDeviceContext,
+                        paddle::platform::bfloat16>,
     ops::Flatten2Kernel<paddle::platform::CPUDeviceContext, int64_t>);
 REGISTER_OP_CPU_KERNEL(
     flatten2_grad,

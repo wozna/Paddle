@@ -370,5 +370,7 @@ class DNNLMatMulKernel : public framework::OpKernel<T> {
 namespace ops = paddle::operators;
 
 REGISTER_OP_KERNEL(matmul, MKLDNN, ::paddle::platform::CPUPlace,
-                   ops::DNNLMatMulKernel<float>, ops::DNNLMatMulKernel<int8_t>,
+                   ops::DNNLMatMulKernel<float>,
+                   ops::DNNLMatMulKernel<paddle::platform::bfloat16>,
+                   ops::DNNLMatMulKernel<int8_t>,
                    ops::DNNLMatMulKernel<uint8_t>);

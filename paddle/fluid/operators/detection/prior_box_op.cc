@@ -224,6 +224,12 @@ class PriorBoxOpMaker : public framework::OpProtoAndCheckerMaker {
                   "int8 kernel. "
                   "Only used on CPU.")
         .SetDefault(false);
+    AddAttr<bool>(
+        "use_bfloat16",
+        "(bool, default false) "
+        "Set to true for operators that should be converted to bfloat16 kernel"
+        "Only used on CPU.")
+        .SetDefault(false);
     AddComment(R"DOC(
 Prior box operator
 Generate prior boxes for SSD(Single Shot MultiBox Detector) algorithm.
@@ -269,6 +275,10 @@ REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(prior_box, MKLDNN,
                                     ::paddle::platform::CPUPlace, S8F,
                                     ops::kPriorBoxFLOAT,
                                     ops::PriorBoxOpKernel<int8_t, float>);
+
+REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(
+    prior_box, MKLDNN, ::paddle::platform::CPUPlace, BFF, ops::kPriorBoxFLOAT,
+    ops::PriorBoxOpKernel<paddle::platform::bfloat16, float>);
 
 REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(prior_box, MKLDNN,
                                     ::paddle::platform::CPUPlace, U8D,

@@ -208,6 +208,17 @@ void AnalysisConfig::EnableMkldnnQuantizer() {
   Update();
 }
 
+void AnalysisConfig::EnableMkldnnBFloat16() {
+#ifdef PADDLE_WITH_MKLDNN
+  use_mkldnn_bfloat16_ = true;
+#else
+  LOG(ERROR) << "Please compile with MKLDNN first to use MkldnnBFloat16";
+  use_mkldnn_bfloat16_ = false;
+#endif
+
+  Update();
+}
+
 MkldnnQuantizerConfig *AnalysisConfig::mkldnn_quantizer_config() const {
   PADDLE_ENFORCE_NOT_NULL(mkldnn_quantizer_config_,
                           "MkldnnQuantizer was not enabled yet.");
@@ -324,6 +335,12 @@ void AnalysisConfig::Update() {
 #endif
   }
 
+  if (use_mkldnn_bfloat16_) {
+#ifdef PADDLE_WITH_MKLDNN
+    pass_builder()->EnableMkldnnBFloat16();
+#endif
+  }
+
 #ifdef PADDLE_WITH_MKLDNN
   // Do not optimize when mkldnn is on
   if (enable_memory_optim_ && !use_mkldnn_) {
@@ -376,6 +393,7 @@ std::string AnalysisConfig::SerializeInfoCache() {
   ss << ";";
 
   ss << use_mkldnn_quantizer_;
+  ss << use_mkldnn_bfloat16_;
   ss << model_from_memory_;
 
   ss << with_profile_;

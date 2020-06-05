@@ -216,4 +216,5 @@ namespace ops = paddle::operators;
 REGISTER_OP_KERNEL(concat, MKLDNN, ::paddle::platform::CPUPlace,
                    ops::ConcatMKLDNNOpKernel<float>,
                    ops::ConcatMKLDNNOpKernel<int8_t>,
-                   ops::ConcatMKLDNNOpKernel<uint8_t>);
+                   ops::ConcatMKLDNNOpKernel<uint8_t>,
+                   ops::ConcatMKLDNNOpKernel<paddle::platform::bfloat16>);

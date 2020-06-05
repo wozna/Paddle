@@ -312,6 +312,12 @@ void Pool2dOpMaker::Make() {
                 "int8 kernel. "
                 "Only used on CPU. Default False")
       .SetDefault(false);
+  AddAttr<bool>(
+      "use_bfloat16",
+      "(bool, default false) "
+      "Set to true for operators that should be converted to bfloat16 kernel"
+      "Only used on CPU.")
+      .SetDefault(false);
   AddAttr<std::string>(
       "data_format",
       "(string, default NCHW) Only used in "

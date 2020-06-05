@@ -438,6 +438,12 @@ class Reshape2OpMaker : public ReshapeOpMaker {
                   "int8 kernel. "
                   "Used only on CPU.")
         .SetDefault(false);
+    AddAttr<bool>(
+        "use_bfloat16",
+        "(bool, default false) "
+        "Set to true for operators that should be converted to bfloat16 kernel"
+        "Only used on CPU.")
+        .SetDefault(false);
   }
 };
 
@@ -588,7 +594,8 @@ REGISTER_OPERATOR(reshape2_grad_grad, ops::Reshape2DoubleGradOp,
 REGISTER_OP_CPU_KERNEL_FUNCTOR(reshape2, float, ops::ReshapeKernel, double,
                                ops::ReshapeKernel, int8_t, ops::ReshapeKernel,
                                uint8_t, ops::ReshapeKernel, int,
-                               ops::ReshapeKernel, int64_t, ops::ReshapeKernel);
+                               ops::ReshapeKernel, int64_t, ops::ReshapeKernel,
+                               paddle::platform::bfloat16, ops::ReshapeKernel);
 REGISTER_OP_CPU_KERNEL_FUNCTOR(reshape2_grad, float, ops::ReshapeGradKernel,
                                double, ops::ReshapeGradKernel, int,
                                ops::ReshapeGradKernel, int64_t,

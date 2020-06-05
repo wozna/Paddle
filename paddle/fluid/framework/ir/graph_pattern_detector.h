@@ -1120,6 +1120,28 @@ struct MultipleQuantize : public PatternBase {
   PATTERN_DECL_NODE(prev_out);
 };
 
+struct BFloat16Placement : public PatternBase {
+  BFloat16Placement(PDPattern* pattern, const std::string& name_scope)
+      : PatternBase(pattern, name_scope, "bfloat16_placement") {}
+  PDNode* operator()();
+
+  PATTERN_DECL_NODE(prev_op);
+  PATTERN_DECL_NODE(prev_out);
+  PATTERN_DECL_NODE(op);
+  PATTERN_DECL_NODE(op_out);
+  PATTERN_DECL_NODE(next_op);
+};
+
+struct BFloat16Ops : public PatternBase {
+  BFloat16Ops(PDPattern* pattern, const std::string& name_scope)
+      : PatternBase(pattern, name_scope, "bfloat16_ops") {}
+  PDNode* operator()();
+
+  PATTERN_DECL_NODE(op);
+  PATTERN_DECL_NODE(op_out);
+  PATTERN_DECL_NODE(next_op);
+};
+
 // Pattern used for enforcing inplace computation for in-place computation
 // supporting DNNL ops. softmax, batch_norm and layer_norm
 struct MKLDNNInPlace : public PatternBase {
