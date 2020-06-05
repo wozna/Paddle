@@ -11,7 +11,6 @@ limitations under the License. */
 
 #include <fstream>
 #include <iostream>
-
 #include "paddle/fluid/inference/api/paddle_analysis_config.h"
 #include "paddle/fluid/inference/tests/api/tester_helper.h"
 

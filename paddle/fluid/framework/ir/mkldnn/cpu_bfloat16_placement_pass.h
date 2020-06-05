@@ -15,7 +15,6 @@ limitations under the License. */
 #pragma once
 
 #include <memory>
-
 #include "paddle/fluid/framework/ir/pass.h"
 
 namespace paddle {
