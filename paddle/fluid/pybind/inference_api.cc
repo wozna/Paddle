@@ -447,6 +447,7 @@ void BindAnalysisConfig(py::module *m) {
            &AnalysisConfig::cpu_math_library_num_threads)
       .def("to_native_config", &AnalysisConfig::ToNativeConfig)
       .def("enable_quantizer", &AnalysisConfig::EnableMkldnnQuantizer)
+      .def("enable_mkldnn_bfloat16", &AnalysisConfig::EnableMkldnnBFloat16)
 #ifdef PADDLE_WITH_MKLDNN
       .def("quantizer_config", &AnalysisConfig::mkldnn_quantizer_config,
            py::return_value_policy::reference)
@@ -560,6 +561,7 @@ void BindPaddlePassBuilder(py::module *m) {
       .def("enable_cudnn", &PassStrategy::EnableCUDNN)
       .def("enable_mkldnn", &PassStrategy::EnableMKLDNN)
       .def("enable_mkldnn_quantizer", &PassStrategy::EnableMkldnnQuantizer)
+      .def("enable_mkldnn_bfloat16", &PassStrategy::EnableMkldnnBFloat16)
       .def("use_gpu", &PassStrategy::use_gpu);
 
   py::class_<CpuPassStrategy, PassStrategy>(*m, "CpuPassStrategy")
@@ -567,14 +569,16 @@ void BindPaddlePassBuilder(py::module *m) {
       .def(py::init<const CpuPassStrategy &>())
       .def("enable_cudnn", &CpuPassStrategy::EnableCUDNN)
       .def("enable_mkldnn", &CpuPassStrategy::EnableMKLDNN)
-      .def("enable_mkldnn_quantizer", &CpuPassStrategy::EnableMkldnnQuantizer);
+      .def("enable_mkldnn_quantizer", &CpuPassStrategy::EnableMkldnnQuantizer)
+      .def("enable_mkldnn_bfloat16", &CpuPassStrategy::EnableMkldnnBFloat16);
 
   py::class_<GpuPassStrategy, PassStrategy>(*m, "GpuPassStrategy")
       .def(py::init<>())
       .def(py::init<const GpuPassStrategy &>())
       .def("enable_cudnn", &GpuPassStrategy::EnableCUDNN)
       .def("enable_mkldnn", &GpuPassStrategy::EnableMKLDNN)
-      .def("enable_mkldnn_quantizer", &GpuPassStrategy::EnableMkldnnQuantizer);
+      .def("enable_mkldnn_quantizer", &GpuPassStrategy::EnableMkldnnQuantizer)
+      .def("enable_mkldnn_quantizer", &GpuPassStrategy::EnableMkldnnBFloat16);
 }
 }  // namespace
 }  // namespace pybind

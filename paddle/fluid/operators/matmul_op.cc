@@ -542,6 +542,12 @@ class MatMulOpMaker : public framework::OpProtoAndCheckerMaker {
                   "int8 kernel. "
                   "Only used on CPU.")
         .SetDefault(false);
+    AddAttr<bool>(
+        "use_bfloat16",
+        "(bool, default false) "
+        "Set to true for operators that should be converted to bfloat16 kernel"
+        "Only used on CPU.")
+        .SetDefault(false);
     AddAttr<float>("Scale_x",
                    "(float, default 1.0f), The quantize scale of X tensor")
         .SetDefault(1.0f);

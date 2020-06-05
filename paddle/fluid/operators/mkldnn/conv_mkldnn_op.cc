@@ -100,16 +100,27 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     bool is_INT8 =
         std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value;
     bool fuse_residual_conn = ctx.Attr<bool>("fuse_residual_connection");
+    auto residual_param = ctx.Input<Tensor>("ResidualData");
     bool force_fp32_output = ctx.Attr<bool>("force_fp32_output");
+    bool use_bfloat16 = ctx.Attr<bool>("use_bfloat16");
     if (!is_INT8) {
-      if (force_fp32_output || fuse_residual_conn) {
-        ComputeFP32<float>(ctx);
+      if (!force_fp32_output && use_bfloat16) {
+        if (fuse_residual_conn && residual_param) {
+          auto residual_dt =
+              framework::ToMKLDNNDataType(residual_param->type());
+          if (residual_dt == mkldnn::memory::data_type::bf16) {
+            ComputeFP32<platform::bfloat16>(ctx);
+          } else {
+            ComputeFP32<float>(ctx);
+          }
+        } else {
+          ComputeFP32<platform::bfloat16>(ctx);
+        }
       } else {
-        ComputeFP32<platform::bfloat16>(ctx);
+        ComputeFP32<float>(ctx);
       }
     } else {
       std::string fuse_activation = ctx.Attr<std::string>("fuse_activation");
-      auto residual_param = ctx.Input<Tensor>("ResidualData");
       auto dst_dt = GetDstType(true, force_fp32_output, fuse_activation,
                                fuse_residual_conn, residual_param);
       if (dst_dt == mkldnn::memory::data_type::f32) {
@@ -321,8 +332,10 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     std::shared_ptr<mkldnn::memory> dst_memory_p, user_residual_memory_p;
 
     if (fuse_residual_conn) {
+      std::cout << " before data<T> \n";
       auto residual_param = ctx.Input<Tensor>("ResidualData");
       auto residual_param_data = residual_param->data<T>();
+      std::cout << " after data<T> \n";
 
       PADDLE_ENFORCE_NE(
           residual_param_data, nullptr,
@@ -372,11 +385,11 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
 
     mkldnn::stream astream(mkldnn_engine);
     if (bias) {
-      const T* bias_data = bias->data<T>();
+      const K* bias_data = bias->data<K>();
       auto user_bias_md = platform::MKLDNNMemDesc(
-          {bias_tz}, platform::MKLDNNGetDataType<T>(), MKLDNNMemoryFormat::x);
+          {bias_tz}, platform::MKLDNNGetDataType<K>(), MKLDNNMemoryFormat::x);
       auto user_bias_memory_p =
-          handler.AcquireBiasMemory(user_bias_md, to_void_cast<T>(bias_data));
+          handler.AcquireBiasMemory(user_bias_md, to_void_cast<K>(bias_data));
 
       auto bias_memory_p =
           handler.AcquireBiasMemoryFromPrimitive(user_bias_memory_p, pipeline);

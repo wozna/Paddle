@@ -115,6 +115,12 @@ class TransposeOpMaker : public framework::OpProtoAndCheckerMaker {
                   "int8 kernel. "
                   "Only used on CPU.")
         .SetDefault(false);
+    AddAttr<bool>(
+        "use_bfloat16",
+        "(bool, default false) "
+        "Set to true for operators that should be converted to bfloat16 kernel"
+        "Only used on CPU.")
+        .SetDefault(false);
     AddComment(R"DOC(
 Transpose Operator.
 

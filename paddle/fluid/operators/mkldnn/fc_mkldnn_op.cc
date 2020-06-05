@@ -505,8 +505,13 @@ static void ExecuteFc(const MKLDNNDeviceContext& dev_ctx,
                       bool force_fp32_output) {
   constexpr bool is_int8 =
       std::is_same<T_in, int8_t>::value || std::is_same<T_in, uint8_t>::value;
+  bool is_bfloat16 = std::is_same<T_in, paddle::platform::bfloat16>::value;
   if (!is_int8 || force_fp32_output) {
     GetPrimitiveFactory<T_in, T_w, float>(dev_ctx, ctx, input, w, mkldnn_engine)
+        ->ExecuteFcPrimitive(input, w, bias, output, ctx);
+  } else if (is_bfloat16) {
+    GetPrimitiveFactory<T_in, T_w, paddle::platform::bfloat16>(
+        dev_ctx, ctx, input, w, mkldnn_engine)
         ->ExecuteFcPrimitive(input, w, bias, output, ctx);
   } else if (fuse_relu) {
     GetPrimitiveFactory<T_in, T_w, uint8_t>(dev_ctx, ctx, input, w,
@@ -553,6 +558,11 @@ namespace ops = paddle::operators;
 REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(fc, MKLDNN, ::paddle::platform::CPUPlace,
                                     FP32, ops::kFCMKLDNNFP32,
                                     ops::FCMKLDNNOpKernel<float, float>);
+
+REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(
+    fc, MKLDNN, ::paddle::platform::CPUPlace, BF16, ops::kFCMKLDNNFP32,
+    ops::FCMKLDNNOpKernel<paddle::platform::bfloat16,
+                          paddle::platform::bfloat16>);
 
 REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(fc, MKLDNN, ::paddle::platform::CPUPlace,
                                     U8, ops::kFCMKLDNNINT8,

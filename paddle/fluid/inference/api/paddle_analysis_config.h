@@ -399,6 +399,12 @@ struct PD_INFER_DECL AnalysisConfig {
   void EnableMkldnnQuantizer();
 
   ///
+  /// \brief Turn on MKLDNN bfloat16.
+  ///
+  ///
+  void EnableMkldnnBFloat16();
+
+  ///
   /// \brief A boolean state telling whether the thread local CUDA stream is
   /// enabled.
   ///
@@ -586,6 +592,7 @@ struct PD_INFER_DECL AnalysisConfig {
   int mkldnn_cache_capacity_{0};
   bool use_mkldnn_quantizer_{false};
   std::shared_ptr<MkldnnQuantizerConfig> mkldnn_quantizer_config_;
+  bool use_mkldnn_bfloat16_{false};
 
   // If the config is already used on a predictor, it becomes invalid.
   // Any config can only be used with one predictor.

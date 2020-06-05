@@ -1879,6 +1879,44 @@ PDNode *patterns::MultipleQuantize::operator()() {
   return prev_out;
 }
 
+PDNode *patterns::BFloat16Placement::operator()() {
+  auto *prev_op = pattern->NewNode(prev_op_repr())->assert_is_op();
+
+  auto *prev_out = pattern->NewNode(prev_out_repr())->AsOutput();
+  auto *op = pattern->NewNode(op_repr())->assert_is_op();
+  op->assert_more([&](Node *node) {
+    return (node->Op()->HasAttr("use_bfloat16") ||
+            node->Op()->HasProtoAttr("use_bfloat16"));
+  });
+  auto *op_out = pattern->NewNode(op_out_repr())->AsOutput();
+
+  auto *next_op = pattern->NewNode(next_op_repr())->assert_is_op();
+
+  prev_op->LinksTo({prev_out});
+  op->LinksFrom({prev_out}).LinksTo({op_out});
+  next_op->LinksFrom({op_out});
+  return next_op;
+}
+
+PDNode *patterns::BFloat16Ops::operator()() {
+  auto *op = pattern->NewNode(op_repr())->assert_is_op();
+  op->assert_more([&](Node *node) {
+    return node->Op()->GetAttrIfExists<bool>("use_bfloat16");
+  });
+  auto *op_out = pattern->NewNode(op_out_repr())->AsOutput();
+
+  auto *next_op = pattern->NewNode(next_op_repr())->assert_is_op();
+  next_op->assert_more([&](Node *node) {
+    return (!(node->Op()->HasAttr("use_bfloat16") ||
+              node->Op()->HasProtoAttr("use_bfloat16")) ||
+            !node->Op()->GetAttrIfExists<bool>("use_bfloat16"));
+  });
+
+  op->LinksTo({op_out});
+  next_op->LinksFrom({op_out});
+  return next_op;
+}
+
 PDNode *patterns::MKLDNNInPlace::operator()() {
   const std::unordered_set<std::string> &supported_op_types = {
       "abs",
