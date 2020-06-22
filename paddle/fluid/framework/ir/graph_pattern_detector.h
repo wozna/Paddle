@@ -1132,14 +1132,24 @@ struct BFloat16Placement : public PatternBase {
   PATTERN_DECL_NODE(next_op);
 };
 
-struct BFloat16Ops : public PatternBase {
-  BFloat16Ops(PDPattern* pattern, const std::string& name_scope)
-      : PatternBase(pattern, name_scope, "bfloat16_ops") {}
+struct LastBfloat16Ops : public PatternBase {
+  LastBfloat16Ops(PDPattern* pattern, const std::string& name_scope)
+      : PatternBase(pattern, name_scope, "last_bfloat16_ops") {}
   PDNode* operator()();
 
   PATTERN_DECL_NODE(op);
   PATTERN_DECL_NODE(op_out);
   PATTERN_DECL_NODE(next_op);
+};
+
+struct FirstBfloat16Ops : public PatternBase {
+  FirstBfloat16Ops(PDPattern* pattern, const std::string& name_scope)
+      : PatternBase(pattern, name_scope, "first_bfloat16_ops") {}
+  PDNode* operator()();
+
+  PATTERN_DECL_NODE(prev_op);
+  PATTERN_DECL_NODE(op_in);
+  PATTERN_DECL_NODE(op);
 };
 
 // Pattern used for enforcing inplace computation for in-place computation

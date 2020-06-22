@@ -156,6 +156,7 @@ void profile(bool use_mkldnn = false) {
 
   if (use_mkldnn) {
     config.EnableMKLDNN();
+    config.EnableMkldnnBFloat16();
   }
 
   std::vector<std::vector<PaddleTensor>> outputs;
@@ -185,14 +186,18 @@ TEST(Analyzer_bert, fuse_statis) {
 void compare(bool use_mkldnn = false) {
   AnalysisConfig cfg;
   SetConfig(&cfg);
+  AnalysisConfig q_cfg;
+  SetConfig(&q_cfg);
   if (use_mkldnn) {
-    cfg.EnableMKLDNN();
+    q_cfg.EnableMKLDNN();
+    q_cfg.EnableMkldnnBFloat16();
   }
 
   std::vector<std::vector<PaddleTensor>> inputs;
   LoadInputData(&inputs);
-  CompareNativeAndAnalysis(
-      reinterpret_cast<const PaddlePredictor::Config *>(&cfg), inputs);
+  CompareBFloat16AndAnalysis(&cfg, &q_cfg, inputs);
+  // CompareNativeAndAnalysis(
+  //     reinterpret_cast<const PaddlePredictor::Config *>(&cfg), inputs);
 }
 
 TEST(Analyzer_bert, compare) { compare(); }

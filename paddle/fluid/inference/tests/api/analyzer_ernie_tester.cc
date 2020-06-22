@@ -135,6 +135,7 @@ void SetConfig(AnalysisConfig *cfg, bool use_mkldnn = false,
   cfg->SetModel(FLAGS_infer_model);
   if (use_mkldnn) {
     cfg->EnableMKLDNN();
+    cfg->EnableMkldnnBFloat16();
   }
   if (use_gpu) {
     cfg->EnableUseGpu(100, 0);
@@ -149,7 +150,6 @@ void SetConfig(AnalysisConfig *cfg, bool use_mkldnn = false,
 void profile(bool use_mkldnn = false, bool use_gpu = false) {
   AnalysisConfig config;
   SetConfig(&config, use_mkldnn, use_gpu);
-
   std::vector<std::vector<PaddleTensor>> outputs;
   std::vector<std::vector<PaddleTensor>> inputs;
   LoadInputData(&inputs);
@@ -191,7 +191,6 @@ TEST(Analyzer_Ernie, fuse_statis) {
 void compare(bool use_mkldnn = false) {
   AnalysisConfig cfg;
   SetConfig(&cfg, use_mkldnn, false);
-
   std::vector<std::vector<PaddleTensor>> inputs;
   LoadInputData(&inputs);
   CompareNativeAndAnalysis(
@@ -218,7 +217,6 @@ TEST(Analyzer_Ernie, compare_determine) {
 TEST(Analyzer_Ernie, compare_results) {
   AnalysisConfig cfg;
   SetConfig(&cfg);
-
   std::vector<std::vector<PaddleTensor>> input_slots_all;
   LoadInputData(&input_slots_all);
 

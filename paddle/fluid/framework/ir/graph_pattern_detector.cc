@@ -1898,7 +1898,7 @@ PDNode *patterns::BFloat16Placement::operator()() {
   return next_op;
 }
 
-PDNode *patterns::BFloat16Ops::operator()() {
+PDNode *patterns::LastBfloat16Ops::operator()() {
   auto *op = pattern->NewNode(op_repr())->assert_is_op();
   op->assert_more([&](Node *node) {
     return node->Op()->GetAttrIfExists<bool>("use_bfloat16");
@@ -1915,6 +1915,25 @@ PDNode *patterns::BFloat16Ops::operator()() {
   op->LinksTo({op_out});
   next_op->LinksFrom({op_out});
   return next_op;
+}
+
+PDNode *patterns::FirstBfloat16Ops::operator()() {
+  auto *prev_op = pattern->NewNode(prev_op_repr())->assert_is_op();
+  prev_op->assert_more([&](Node *node) {
+    return (!(node->Op()->HasAttr("use_bfloat16") ||
+              node->Op()->HasProtoAttr("use_bfloat16")) ||
+            !node->Op()->GetAttrIfExists<bool>("use_bfloat16"));
+            });
+  auto *op_in = pattern->NewNode(op_in_repr())->AsOutput();
+  
+  auto *op = pattern->NewNode(op_repr())->assert_is_op();
+  op->assert_more([&](Node *node) {
+    return node->Op()->GetAttrIfExists<bool>("use_bfloat16");
+  });
+
+  prev_op->LinksTo({op_in});
+  op->LinksFrom({op_in});
+  return op;
 }
 
 PDNode *patterns::MKLDNNInPlace::operator()() {

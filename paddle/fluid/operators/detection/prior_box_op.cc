@@ -277,7 +277,7 @@ REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(prior_box, MKLDNN,
                                     ops::PriorBoxOpKernel<int8_t, float>);
 
 REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(
-    prior_box, MKLDNN, ::paddle::platform::CPUPlace, BFF, ops::kPriorBoxFLOAT,
+    prior_box, MKLDNN, ::paddle::platform::CPUPlace, B16F, ops::kPriorBoxFLOAT,
     ops::PriorBoxOpKernel<paddle::platform::bfloat16, float>);
 
 REGISTER_OP_KERNEL_WITH_CUSTOM_TYPE(prior_box, MKLDNN,

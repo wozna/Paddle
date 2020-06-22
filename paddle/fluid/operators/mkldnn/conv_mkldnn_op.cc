@@ -332,10 +332,8 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     std::shared_ptr<mkldnn::memory> dst_memory_p, user_residual_memory_p;
 
     if (fuse_residual_conn) {
-      std::cout << " before data<T> \n";
       auto residual_param = ctx.Input<Tensor>("ResidualData");
       auto residual_param_data = residual_param->data<T>();
-      std::cout << " after data<T> \n";
 
       PADDLE_ENFORCE_NE(
           residual_param_data, nullptr,

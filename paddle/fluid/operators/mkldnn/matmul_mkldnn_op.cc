@@ -36,6 +36,11 @@ constexpr bool IsInt8() {
   return std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value;
 }
 
+template <typename T>
+constexpr bool IsBfloat16() {
+  return std::is_same<T, paddle::platform::bfloat16>::value;
+}
+
 // Get row matrix shape from a vector shape. If the rank of x_dim > 1, the
 // original x_dim is returned.
 static framework::DDim RowMatrixDimsFromVector(const framework::DDim& x_dim) {
@@ -164,7 +169,9 @@ class MatMulFactory {
   void CorrectStridesWhenFloatOutputFused(const ExecutionContext& ctx,
                                           const memory::dim N, memory::dim b,
                                           memory::dims* out_strides) const {
-    if (!IsInt8<OT>() && IsOutputFused(ctx)) *out_strides = {N, b * N, 1};
+    if (!IsInt8<OT>() && !IsBfloat16<OT>() && IsOutputFused(ctx)){ 
+      *out_strides = {N, b * N, 1};
+    }
   }
 
   MatMulDims GetMatmulDims(const ExecutionContext& ctx) {
@@ -220,7 +227,6 @@ class MatMulFactory {
 
   void CreateMemories(const ExecutionContext& ctx) {
     auto matmul_dims = GetMatmulDims(ctx);
-
     x_mem_ = CreateMemory<XT>(matmul_dims.x_dims, matmul_dims.x_strides,
                               ctx.Input<Tensor>("X")->data<XT>());
     y_mem_ = CreateMemory<YT>(matmul_dims.y_dims, matmul_dims.y_strides,
@@ -342,13 +348,16 @@ static std::shared_ptr<MatMulFactory<XT, YT, OT>> GetPrimitiveFactory(
 template <typename XT, typename YT>
 static void ExecuteMatMul(const ExecutionContext& ctx) {
   constexpr bool is_int8 = IsInt8<XT>();
+  constexpr bool is_bfloat16 = IsBfloat16<XT>();
   const bool force_fp32_output = ctx.Attr<bool>("force_fp32_output");
   constexpr bool fuse_relu = false;  // TODO(intel): Enable eltwise fuses
-  if (!is_int8 || force_fp32_output) {
+  if (force_fp32_output || ((!is_bfloat16) && (!is_bfloat16))) {
     GetPrimitiveFactory<XT, YT, float>(ctx)->CreateAndExecute(ctx);
-  } else if (fuse_relu) {
+  }else if (is_bfloat16) {
+    GetPrimitiveFactory<XT, YT, paddle::platform::bfloat16>(ctx)->CreateAndExecute(ctx);
+  }else if (fuse_relu) {
     GetPrimitiveFactory<XT, YT, uint8_t>(ctx)->CreateAndExecute(ctx);
-  } else {
+  }else {
     GetPrimitiveFactory<XT, YT, int8_t>(ctx)->CreateAndExecute(ctx);
   }
 }
