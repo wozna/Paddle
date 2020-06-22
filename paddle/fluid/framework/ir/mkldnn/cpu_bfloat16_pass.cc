@@ -63,9 +63,7 @@ void CPUBFloat16Pass::ApplyImpl(ir::Graph* graph) const {
 
         std::string op_output_name;
         for (auto name : op->Op()->OutputNames()) {
-          std::cout << name << " ";
           for (auto output_name : op->Op()->Output(name)) {
-            std::cout << output_name << " " << op_out->Name() << " ";
             if (output_name == op_out->Name()) op_output_name = name;
           }
         }
