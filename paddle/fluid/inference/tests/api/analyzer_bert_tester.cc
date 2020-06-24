@@ -197,9 +197,9 @@ void compare(bool use_mkldnn = false) {
 
   std::vector<std::vector<PaddleTensor>> inputs;
   LoadInputData(&inputs);
-  CompareBFloat16AndAnalysis(&cfg, &q_cfg, inputs);
-  // CompareNativeAndAnalysis(
-  //     reinterpret_cast<const PaddlePredictor::Config *>(&cfg), inputs);
+  // CompareBFloat16AndAnalysis(&cfg, &q_cfg, inputs);
+  CompareNativeAndAnalysis(
+      reinterpret_cast<const PaddlePredictor::Config *>(&cfg), inputs);
 }
 
 TEST(Analyzer_bert, compare) { compare(); }

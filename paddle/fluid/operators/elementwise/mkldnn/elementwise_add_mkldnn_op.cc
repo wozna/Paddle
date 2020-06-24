@@ -35,19 +35,15 @@ class EltwiseAddMKLDNNGradKernel : public ElemwiseGradKernel<T> {
     // TODO(jczaja): Double check if vcopy works for blocked data
     auto blas = math::GetBlas<paddle::platform::CPUDeviceContext, T>(ctx);
     if (dx) {
-      std::cout << " dx before \n";
       blas.VCOPY(dout->numel(), dout->data<T>(),
                  dx->mutable_data<T>(ctx.GetPlace()));
       set_mkldnn_format(dx, dout);
-      std::cout << " dx after \n";
     }
 
     if (dy) {
-      std::cout << " dy before \n";
       blas.VCOPY(dout->numel(), dout->data<T>(),
                  dy->mutable_data<T>(ctx.GetPlace()));
       set_mkldnn_format(dy, dout);
-      std::cout << " dy after \n";
     }
   }
 };

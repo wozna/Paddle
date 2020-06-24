@@ -34,13 +34,11 @@ void CPUBFloat16PlacementPass::ApplyImpl(ir::Graph* graph) const {
     GET_IR_NODE_FROM_SUBGRAPH(op, op, bfloat16_placement_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(op_out, op_out, bfloat16_placement_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(next_op, next_op, bfloat16_placement_pattern);
-  //  std::cout << prev_op->Op()->Type() << " " << op->Op()->Type() << " " << next_op->Op()->Type() << " \n";
      //check if previous operator can be change to bfloat16
     if ((prev_op->Op()->HasAttr("use_bfloat16") || prev_op->Op()->HasProtoAttr("use_bfloat16") || 
          next_op->Op()->HasAttr("use_bfloat16") || next_op->Op()->HasProtoAttr("use_bfloat16")) 
     && (op->Op()->GetAttrIfExists<bool>("use_mkldnn") || op->Op()->Type() == "reshape2")) {
       op->Op()->SetAttr("use_bfloat16", true);
-      std::cout << prev_op->Op()->Type() << " " << op->Op()->Type() << " " << next_op->Op()->Type() << " \n";
     } else if (op->Op()->Type() == "conv2d" &&
                (next_op->Op()->HasAttr("use_bfloat16") ||
                 next_op->Op()->HasProtoAttr("use_bfloat16"))) {
