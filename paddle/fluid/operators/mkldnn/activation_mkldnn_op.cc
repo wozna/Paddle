@@ -74,8 +74,8 @@ void eltwise_forward(const framework::ExecutionContext &ctx,
   const auto *x = ctx.Input<Tensor>("X");
   auto *y = ctx.Output<Tensor>("Out");
 
-  T alpha = ctx.HasAttr("alpha") ? ctx.Attr<T>("alpha") : 0;
-  T beta = ctx.HasAttr("beta") ? ctx.Attr<T>("beta") : 0;
+  float alpha = ctx.HasAttr("alpha") ? ctx.Attr<float>("alpha") : 0.f;
+  float beta = ctx.HasAttr("beta") ? ctx.Attr<float>("beta") : 0.f;
 
   // paddle uses beta but mkldnn uses alpha for swish
   if (algorithm == mkldnn::algorithm::eltwise_swish) {
@@ -119,8 +119,8 @@ void eltwise_grad(const framework::ExecutionContext &ctx,
   const auto *diff_y = ctx.Input<Tensor>(framework::GradVarName("Out"));
   auto *diff_x = ctx.Output<Tensor>(framework::GradVarName("X"));
 
-  T alpha = ctx.HasAttr("alpha") ? ctx.Attr<T>("alpha") : 0;
-  T beta = ctx.HasAttr("beta") ? ctx.Attr<T>("beta") : 0;
+  float alpha = ctx.HasAttr("alpha") ? ctx.Attr<float>("alpha") : 0.f;
+  float beta = ctx.HasAttr("beta") ? ctx.Attr<float>("beta") : 0.f;
 
   // paddle uses beta but mkldnn uses alpha for swish
   if (algorithm == mkldnn::algorithm::eltwise_swish) {
@@ -275,3 +275,10 @@ namespace ops = paddle::operators;
   __macro(abs, AbsMKLDNNFunctor, AbsMKLDNNGradFunctor);
 
 FOR_EACH_MKLDNN_KERNEL_FUNCTOR(REGISTER_ACTIVATION_MKLDNN_KERNEL);
+
+REGISTER_OP_KERNEL(gelu, MKLDNN, ::paddle::platform::CPUPlace,
+      ops::MKLDNNActivationKernel<ops::GeluMKLDNNFunctor<float>>,
+      ops::MKLDNNActivationKernel<ops::GeluMKLDNNFunctor<paddle::platform::bfloat16>>);
+REGISTER_OP_KERNEL(gelu_grad, MKLDNN, ::paddle::platform::CPUPlace, 
+      ops::MKLDNNActivationGradKernel<ops::ReluMKLDNNGradFunctor<float>>,
+      ops::MKLDNNActivationGradKernel<ops::ReluMKLDNNGradFunctor<paddle::platform::bfloat16>>);
