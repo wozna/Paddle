@@ -190,16 +190,17 @@ void compare(bool use_mkldnn = false) {
   AnalysisConfig q_cfg;
   SetConfig(&q_cfg);
   if (use_mkldnn) {
-    q_cfg.SwitchIrDebug();
+   // q_cfg.SwitchIrDebug();
+    // cfg.EnableMKLDNN();
     q_cfg.EnableMKLDNN();
     q_cfg.EnableMkldnnBFloat16();
   }
 
   std::vector<std::vector<PaddleTensor>> inputs;
   LoadInputData(&inputs);
-  // CompareBFloat16AndAnalysis(&cfg, &q_cfg, inputs);
-  CompareNativeAndAnalysis(
-      reinterpret_cast<const PaddlePredictor::Config *>(&cfg), inputs);
+  CompareBFloat16AndAnalysisBert(&cfg, &q_cfg, inputs);
+  //CompareNativeAndAnalysis(
+  //  reinterpret_cast<const PaddlePredictor::Config *>(&cfg), inputs);
 }
 
 TEST(Analyzer_bert, compare) { compare(); }

@@ -150,6 +150,7 @@ void CompareResult(const std::vector<PaddleTensor> &outputs,
         float *pdata = static_cast<float *>(out.data.data());
         float *pdata_ref = static_cast<float *>(ref_out.data.data());
         for (size_t j = 0; j < size; ++j) {
+          std::cout << "FP32: " <<  pdata_ref[j] << " BF16: "<< pdata[j] << "\n";
           CheckError(pdata_ref[j], pdata[j]);
         }
         break;
@@ -542,10 +543,10 @@ void SummarizePerformance(const char *title, float sample) {
             << " ms";
 }
 
-void SummarizePerformance(float sample_latency_fp32,
-                          float sample_latency_int8) {
-  if (FLAGS_enable_fp32) SummarizePerformance("FP32", sample_latency_fp32);
-  if (FLAGS_enable_int8) SummarizePerformance("INT8", sample_latency_int8);
+void SummarizePerformance(const char *title_fp32, float sample_latency_fp32, 
+                          const char *title, float sample_latency) {
+  if (FLAGS_enable_fp32) SummarizePerformance(title_fp32, sample_latency_fp32);
+  if (FLAGS_enable_int8) SummarizePerformance(title, sample_latency);
 }
 
 float CompareAccuracyOne(
@@ -695,7 +696,7 @@ void CompareQuantizedAndAnalysis(
     TestOneThreadPrediction(qcfg, inputs, &quantized_outputs, true,
                             VarType::INT8, &sample_latency_int8);
   }
-  SummarizePerformance(sample_latency_fp32, sample_latency_int8);
+  SummarizePerformance("FP32", sample_latency_fp32, "INT8", sample_latency_int8);
 
   CompareAccuracy(quantized_outputs, analysis_outputs, compared_idx);
 }
@@ -733,10 +734,39 @@ void CompareBFloat16AndAnalysis(
     TestOneThreadPrediction(qcfg, inputs, &bf16_outputs, true, VarType::FP32,
                             &sample_latency_bf16);
   }
-  SummarizePerformance(sample_latency_fp32, sample_latency_bf16);
+  SummarizePerformance("FP32", sample_latency_fp32, "BF16", sample_latency_bf16);
 
   CompareAccuracy(bf16_outputs, analysis_outputs, compared_idx);
 }
+
+void CompareBFloat16AndAnalysisBert(
+    const AnalysisConfig *config, const AnalysisConfig *bfloat_config,
+    const std::vector<std::vector<PaddleTensor>> &inputs) {
+
+  LOG(INFO) << "--- FP32 prediction start ---";
+  std::vector<std::vector<PaddleTensor>> analysis_outputs;
+  auto *cfg = reinterpret_cast<const PaddlePredictor::Config *>(config);
+  float sample_latency_fp32{-1};
+
+  if (FLAGS_enable_fp32) {
+    TestOneThreadPrediction(cfg, inputs, &analysis_outputs, false, VarType::FP32,
+                            &sample_latency_fp32);
+  }
+
+  LOG(INFO) << "--- BF16 prediction start ---";
+  std::vector<std::vector<PaddleTensor>> bf16_outputs;
+  auto *b_cfg = reinterpret_cast<const PaddlePredictor::Config *>(bfloat_config);
+  float sample_latency_bf16{-1};
+
+  if (FLAGS_enable_bf16) {
+    TestOneThreadPrediction(b_cfg, inputs, &bf16_outputs, true,  VarType::FP32,
+                            &sample_latency_bf16);
+  }
+  SummarizePerformance("FP32", sample_latency_fp32, "BF16", sample_latency_bf16);
+
+  CompareResult(analysis_outputs.back(), bf16_outputs.back());
+}
+
 
 void CompareAnalysisAndAnalysis(
     const AnalysisConfig *config1, const AnalysisConfig *config2,
@@ -774,7 +804,7 @@ void CompareAnalysisAndAnalysis(
     TestOneThreadPrediction(cfg2, inputs, &int8_outputs, true, VarType::INT8,
                             &sample_latency_int8);
   }
-  SummarizePerformance(sample_latency_fp32, sample_latency_int8);
+  SummarizePerformance("FP32", sample_latency_fp32, "INT8", sample_latency_int8);
   if (with_accuracy_layer) {
     CompareAccuracy(int8_outputs, analysis_outputs, compared_idx);
   }
