@@ -58,7 +58,6 @@ class SoftmaxMKLDNNHandler
       auto softmax_tz = framework::vectorize(input->dims());
       auto md = memory::desc(softmax_tz, platform::MKLDNNGetDataType<T>(),
                              input->format());
-
       this->AcquireForwardPrimitiveDescriptor(prop_kind::forward_scoring, md,
                                               axis);
     }
