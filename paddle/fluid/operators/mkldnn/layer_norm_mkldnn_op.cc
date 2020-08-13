@@ -80,7 +80,7 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     if (with_scaleshift) {
       auto scaleshift_memory = handler.AcquireScaleShiftMemory();
       if (scaleshift_memory == nullptr || !is_test) {
-        std::vector<T> scaleshift_data;
+        std::vector<float> scaleshift_data;
         auto scale_tz = paddle::framework::vectorize(scale->dims());
         const unsigned int C = scale_tz[0];
 

@@ -646,7 +646,7 @@ class LayerNormMKLDNNHandler
     return this->AcquireMemoryFromPrimitive("@scaleshift_mem_p");
   }
 
-  std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory(T* scaleshift_data) {
+  std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory(float* scaleshift_data) {
     return this->AcquireMemoryFromPrimitive(
         this->fwd_pd_->weights_desc(), scaleshift_data, "@scaleshift_mem_p");
   }
