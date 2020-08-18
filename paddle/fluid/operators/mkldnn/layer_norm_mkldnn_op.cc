@@ -77,10 +77,10 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
       args.insert({DNNL_ARG_VARIANCE, *variance_memory});
     }
 
+    auto scaleshift_memory = handler.AcquireScaleShiftMemory();
+    std::vector<float> scaleshift_data;
     if (with_scaleshift) {
-      auto scaleshift_memory = handler.AcquireScaleShiftMemory();
       if (scaleshift_memory == nullptr || !is_test) {
-        std::vector<float> scaleshift_data;
         auto scale_tz = paddle::framework::vectorize(scale->dims());
         const unsigned int C = scale_tz[0];
 
