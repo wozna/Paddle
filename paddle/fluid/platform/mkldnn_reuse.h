@@ -719,9 +719,15 @@ class LayerNormMKLDNNHandler
     return this->AcquireMemoryFromPrimitive("@scaleshift_mem_p");
   }
 
-  std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory(float* scaleshift_data) {
-    return this->AcquireMemoryFromPrimitive(
-        this->fwd_pd_->weights_desc(), scaleshift_data, "@scaleshift_mem_p");
+  std::shared_ptr<dnnl::memory> AcquireScaleShiftMemory(std::vector<float>& scaleshift_data) {
+    // scaleshift_data comes from temporary buffer so we need to copy it into
+    // created memory primitivie
+    auto scaleshift_mem = this->AcquireMemoryFromPrimitive(
+        this->fwd_pd_->weights_desc(), "@scaleshift_mem_p");
+    auto data_ptr = scaleshift_mem->get_data_handle(); 
+    std::size_t num_bytes = scaleshift_data.size()*sizeof(float);
+    std::memcpy(data_ptr, scaleshift_data.data(), num_bytes);
+    return scaleshift_mem; 
   }
 
   std::shared_ptr<dnnl::memory> AcquireMeanMemory(framework::Tensor* mean) {
