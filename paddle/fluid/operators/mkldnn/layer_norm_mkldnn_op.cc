@@ -78,13 +78,13 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
     }
 
     auto scaleshift_memory = handler.AcquireScaleShiftMemory();
-    std::vector<float> scaleshift_data;
     if (with_scaleshift) {
       if (scaleshift_memory == nullptr || !is_test) {
         auto scale_tz = paddle::framework::vectorize(scale->dims());
         const unsigned int C = scale_tz[0];
 
         // MKLDNN requires a single piece of memory for scale and shift/bias data
+        std::vector<float> scaleshift_data;
         scaleshift_data.reserve(2 * C);
         scaleshift_data.insert(scaleshift_data.begin(), scale->data<float>(),
                               scale->data<float>() + C);
@@ -93,7 +93,7 @@ class LayerNormMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
                               bias->data<float>() + C);
 
         scaleshift_memory =
-          handler.AcquireScaleShiftMemory(scaleshift_data.data());
+          handler.AcquireScaleShiftMemory(scaleshift_data);
 
       }
       args.insert({DNNL_ARG_SCALE_SHIFT, *scaleshift_memory});
