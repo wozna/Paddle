@@ -34,7 +34,7 @@ if (NOT LITE_SOURCE_DIR OR NOT LITE_BINARY_DIR)
   set(LITE_INSTALL_DIR ${THIRD_PARTY_PATH}/install/lite)
 
   if(NOT LITE_GIT_TAG)
-    set(LITE_GIT_TAG dfdfa6440c83bf0b415f9f5a9ff84842ce0bb0fa)
+    set(LITE_GIT_TAG 25cef139122bd61061c537f4e70bffca1a670380)
   endif()
 
   if(NOT CUDA_ARCH_NAME)
@@ -63,7 +63,7 @@ if (NOT LITE_SOURCE_DIR OR NOT LITE_BINARY_DIR)
   ExternalProject_Add(
       ${LITE_PROJECT}
       ${EXTERNAL_PROJECT_LOG_ARGS}
-      GIT_REPOSITORY      "https://github.com/PaddlePaddle/Paddle-Lite.git"
+      GIT_REPOSITORY      "https://github.com/wozna/Paddle-Lite.git"
       GIT_TAG             ${LITE_GIT_TAG}
       PREFIX              ${LITE_SOURCES_DIR}
       UPDATE_COMMAND      ""
