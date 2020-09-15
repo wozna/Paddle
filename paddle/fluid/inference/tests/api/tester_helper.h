@@ -48,6 +48,7 @@ DEFINE_bool(ernie_large, false, "Test ernie large");
 DEFINE_bool(with_accuracy_layer, true,
             "Calculate the accuracy while label is in the input");
 DEFINE_bool(enable_fp32, true, "Enable FP32 type prediction");
+DEFINE_bool(enable_bf16, true, "Enable BF16 type prediction");
 DEFINE_bool(enable_int8, true, "Enable INT8 type prediction");
 DEFINE_int32(warmup_batch_size, 100, "batch size for quantization warmup");
 // setting iterations to 0 means processing the whole dataset
@@ -505,7 +506,7 @@ void TestPrediction(const PaddlePredictor::Config *config,
   }
 }
 
-void SummarizeAccuracy(float avg_acc_fp32, float avg_acc_int8,
+void SummarizeAccuracy(float avg_acc_fp32, float avg_acc, const char *title,
                        int compared_idx) {
   PADDLE_ENFORCE_LE(
       compared_idx, 2,
@@ -525,12 +526,12 @@ void SummarizeAccuracy(float avg_acc_fp32, float avg_acc_int8,
   LOG(INFO) << "--- Accuracy summary --- ";
   LOG(INFO) << "Accepted " << prefix
             << "drop threshold: " << FLAGS_quantized_accuracy
-            << ". (condition: (FP32_" << prefix << " - INT8_" << prefix
-            << ") <= threshold)";
+            << ". (condition: (FP32_" << prefix << " - " << title << "_"
+            << prefix << ") <= threshold)";
   LOG(INFO) << "FP32: avg " << prefix << std::fixed << std::setw(6)
             << std::setprecision(4) << avg_acc_fp32;
-  LOG(INFO) << "INT8: avg " << prefix << std::fixed << std::setw(6)
-            << std::setprecision(4) << avg_acc_int8;
+  LOG(INFO) << title << ": avg " << prefix << std::fixed << std::setw(6)
+            << std::setprecision(4) << avg_acc;
 }
 
 void SummarizePerformance(const char *title, float sample) {
@@ -541,10 +542,10 @@ void SummarizePerformance(const char *title, float sample) {
             << " ms";
 }
 
-void SummarizePerformance(float sample_latency_fp32,
-                          float sample_latency_int8) {
-  if (FLAGS_enable_fp32) SummarizePerformance("FP32", sample_latency_fp32);
-  if (FLAGS_enable_int8) SummarizePerformance("INT8", sample_latency_int8);
+void SummarizePerformance(const char *title_fp32, float sample_latency_fp32,
+                          const char *title, float sample_latency) {
+  SummarizePerformance(title_fp32, sample_latency_fp32);
+  SummarizePerformance(title, sample_latency);
 }
 
 float CompareAccuracyOne(
@@ -596,31 +597,31 @@ float CompareAccuracyOne(
 }
 
 void CompareAccuracy(
-    const std::vector<std::vector<PaddleTensor>> &output_slots_quant,
+    const std::vector<std::vector<PaddleTensor>> &output_slots,
     const std::vector<std::vector<PaddleTensor>> &output_slots_ref,
-    int compared_idx) {
-  if ((FLAGS_enable_fp32 && FLAGS_enable_int8) &&
-      (output_slots_quant.size() == 0 || output_slots_ref.size()) == 0)
+    int compared_idx, const char *title = "INT8") {
+  if ((FLAGS_enable_fp32 && (FLAGS_enable_int8 || FLAGS_enable_bf16)) &&
+      (output_slots.size() == 0 || output_slots_ref.size()) == 0)
     throw std::invalid_argument(
         "CompareAccuracy: output_slots vector is empty.");
 
-  float avg_acc_quant = 0.0;
+  float avg_acc = 0.0;
   float avg_acc_ref = 0.0;
 
-  if (FLAGS_enable_int8)
-    avg_acc_quant = CompareAccuracyOne(output_slots_quant, compared_idx);
+  if (FLAGS_enable_int8 || FLAGS_enable_bf16)
+    avg_acc = CompareAccuracyOne(output_slots, compared_idx);
 
   if (FLAGS_enable_fp32)
     avg_acc_ref = CompareAccuracyOne(output_slots_ref, compared_idx);
 
-  SummarizeAccuracy(avg_acc_ref, avg_acc_quant, compared_idx);
+  SummarizeAccuracy(avg_acc_ref, avg_acc, title, compared_idx);
 
   if (FLAGS_enable_fp32) CHECK_GT(avg_acc_ref, 0.0);
 
-  if (FLAGS_enable_int8) CHECK_GT(avg_acc_quant, 0.0);
+  if (FLAGS_enable_int8) CHECK_GT(avg_acc, 0.0);
 
   if (FLAGS_enable_fp32 && FLAGS_enable_int8)
-    CHECK_LE(avg_acc_ref - avg_acc_quant, FLAGS_quantized_accuracy);
+    CHECK_LE(avg_acc_ref - avg_acc, FLAGS_quantized_accuracy);
 }
 
 void CompareDeterministic(
@@ -694,9 +695,49 @@ void CompareQuantizedAndAnalysis(
     TestOneThreadPrediction(qcfg, inputs, &quantized_outputs, true,
                             VarType::INT8, &sample_latency_int8);
   }
-  SummarizePerformance(sample_latency_fp32, sample_latency_int8);
+  SummarizePerformance("FP32", sample_latency_fp32, "INT8",
+                       sample_latency_int8);
 
   CompareAccuracy(quantized_outputs, analysis_outputs, compared_idx);
+}
+
+void CompareBfloat16AndAnalysis(
+    const AnalysisConfig *config, const AnalysisConfig *qconfig,
+    const std::vector<std::vector<PaddleTensor>> &inputs,
+    const int compared_idx = 1) {
+  PADDLE_ENFORCE_EQ(
+      inputs[0][0].shape[0], FLAGS_batch_size,
+      platform::errors::InvalidArgument(
+          "Input data has to be packed batch by batch. The batchsize is set to "
+          "%d, but the real input is packed with batchsize = %d",
+          FLAGS_batch_size, inputs[0][0].shape[0]));
+  LOG(INFO) << "FP32 & BF16 prediction run: batch_size " << FLAGS_batch_size;
+
+  LOG(INFO) << "--- FP32 prediction start ---";
+  auto *cfg = reinterpret_cast<const PaddlePredictor::Config *>(config);
+  PrintConfig(cfg, true);
+  std::vector<std::vector<PaddleTensor>> analysis_outputs;
+  float sample_latency_fp32{-1};
+
+  if (FLAGS_enable_fp32) {
+    TestOneThreadPrediction(cfg, inputs, &analysis_outputs, true, VarType::FP32,
+                            &sample_latency_fp32);
+  }
+
+  LOG(INFO) << "--- BF16 prediction start ---";
+  auto *qcfg = reinterpret_cast<const PaddlePredictor::Config *>(qconfig);
+  PrintConfig(qcfg, true);
+  std::vector<std::vector<PaddleTensor>> bf16_outputs;
+  float sample_latency_bf16{-1};
+
+  if (FLAGS_enable_bf16) {
+    TestOneThreadPrediction(qcfg, inputs, &bf16_outputs, true, VarType::FP32,
+                            &sample_latency_bf16);
+  }
+  SummarizePerformance("FP32", sample_latency_fp32, "BF16",
+                       sample_latency_bf16);
+
+  CompareAccuracy(bf16_outputs, analysis_outputs, compared_idx, "BF16");
 }
 
 void CompareAnalysisAndAnalysis(
@@ -735,7 +776,8 @@ void CompareAnalysisAndAnalysis(
     TestOneThreadPrediction(cfg2, inputs, &int8_outputs, true, VarType::INT8,
                             &sample_latency_int8);
   }
-  SummarizePerformance(sample_latency_fp32, sample_latency_int8);
+  SummarizePerformance("FP32", sample_latency_fp32, "INT8",
+                       sample_latency_int8);
   if (with_accuracy_layer) {
     CompareAccuracy(int8_outputs, analysis_outputs, compared_idx);
   }
