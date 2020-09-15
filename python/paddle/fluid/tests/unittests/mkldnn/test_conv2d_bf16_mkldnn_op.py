@@ -16,12 +16,15 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
+import struct
 
 import paddle.fluid.core as core
-from paddle.fluid.tests.unittests.op_test import OpTest
+from paddle.fluid.tests.unittests.op_test import OpTest, skip_check_grad_ci
 from paddle.fluid.tests.unittests.test_conv2d_op import conv2d_forward_naive, TestConv2dOp
 
 
+@skip_check_grad_ci(
+    reason="The function 'check_grad' for large inputs is too slow.")
 def conv2d_forward_refer(input, filter, group, conv_param):
     out, in_n, out_h, out_w, out_c = conv2d_forward_naive(input, filter, group,
                                                           conv_param)
@@ -54,7 +57,7 @@ class TestConv2dBf16Op(TestConv2dOp):
         self.weight_type = np.float32
         self.input_type = np.float32
         self.use_mkldnn = True
-        self.mkldnn_data_type = False
+        self.mkldnn_data_type = "bfloat16"
         self.force_fp32_output = False
         self.init_group()
         self.init_dilation()
@@ -62,33 +65,39 @@ class TestConv2dBf16Op(TestConv2dOp):
         self.init_fuse_relu()
         self.init_fuse_residual()
         self.init_data_type()
+        self.init_force_fp32_output()
 
         conv2d_param = {
             'stride': self.stride,
             'pad': self.pad,
             'dilation': self.dilations
         }
-
-        self.input = np.random.random(self.input_size).astype(self.input_type)
-        self.filter = np.random.random(self.filter_size).astype(self.weight_type)
+        self.input = np.random.random(self.input_size).astype(np.float32)
+        self.filter = np.random.random(
+            self.filter_size).astype(np.float32)
         conv_out, _, _, _, _ = conv2d_forward_naive(
             self.input, self.filter, self.groups, conv2d_param)
         self.conv_output_float = conv_out
 
         if self.force_fp32_output:
-          self.outputs = {'Output': self.conv_output_float}
-        else
-          self.conv_output = convert_float_to_uint16(conv_out)
-          self.outputs = {'Output': self.conv_output}
+            self.outputs = {
+                'Output': self.conv_output_float.astype(np.float32)}
+        else:
+            self.conv_output = convert_float_to_uint16(conv_out)
+            self.outputs = {'Output': self.conv_output}
+
+        if self.input_type is not np.float32:
+            self.input = convert_float_to_uint16(self.input)
 
         self.inputs = {
             'Input':
-            OpTest.np_dtype_to_fluid_dtype(input.astype(self.input_type)),
-            'Filter': OpTest.np_dtype_to_fluid_dtype(filter)
+            self.input.view(self.input_type),
+            'Filter': OpTest.np_dtype_to_fluid_dtype(self.filter.astype(self.weight_type))
         }
-        if self.fuse_residual:
-            self.inputs['ResidualData'] = OpTest.np_dtype_to_fluid_dtype(
-                input_residual)
+
+        # if self.fuse_residual:
+        #     self.inputs['ResidualData'] = OpTest.np_dtype_to_fluid_dtype(
+        #         input_residual)
 
         self.attrs = {
             'strides': self.stride,
@@ -97,15 +106,13 @@ class TestConv2dBf16Op(TestConv2dOp):
             'dilations': self.dilations,
             'use_cudnn': self.use_cudnn,
             'use_mkldnn': self.use_mkldnn,
-            'data_format': self.data_format,
-            'exhaustive_search': self.exhaustive_search,
-            'fuse_activation': self.fuse_activation,
-            'fuse_residual_connection': self.fuse_residual
+            'mkldnn_data_type': self.mkldnn_data_type,
+            'force_fp32_output': self.force_fp32_output
         }
 
     def test_check_output(self):
         self.check_output_with_place(
-            core.CPUPlace(), atol=0, check_dygraph=False)
+            core.CPUPlace(), atol=2, check_dygraph=False)
 
     def test_check_grad(self):
         pass
@@ -125,7 +132,10 @@ class TestConv2dBf16Op(TestConv2dOp):
 
     def init_data_type(self):
         self.weight_type = np.float32
-        self.input_type = np.float32
+        self.input_type = np.uint16
+    
+    def init_force_fp32_output(self):
+        self.force_fp32_output = False
 
     def init_fuse_relu(self):
         self.fuse_activation = "relu"
@@ -134,7 +144,7 @@ class TestConv2dBf16Op(TestConv2dOp):
         self.fuse_residual = True
 
 
-#--------------------test conv2d u8 in and u8 out with residual fuse--------------------
+# --------------------test conv2d u8 in and u8 out with residual fuse--------------------
 
 
 class TestConv2d(TestConv2dBf16Op):
@@ -146,6 +156,9 @@ class TestConv2d(TestConv2dBf16Op):
         assert np.mod(self.input_size[1], self.groups) == 0
         f_c = self.input_size[1] // self.groups
         self.filter_size = [6, f_c, 3, 3]
+
+    def init_data_type(self):
+        self.input_type = np.uint16
 
 
 class TestWithPad(TestConv2d):
@@ -170,6 +183,9 @@ class TestWithStride(TestConv2dBf16Op):
         f_c = self.input_size[1] // self.groups
         self.filter_size = [6, f_c, 3, 3]
 
+    def init_data_type(self):
+        self.input_type = np.uint16
+
 
 class TestWith1x1(TestConv2dBf16Op):
     def init_test_case(self):
@@ -181,6 +197,8 @@ class TestWith1x1(TestConv2dBf16Op):
         f_c = self.input_size[1] // self.groups
         self.filter_size = [6, f_c, 1, 1]
 
+    def init_force_fp32_output(self):
+        self.force_fp32_output = True
 
 class TestWithInput1x1Filter1x1(TestConv2dBf16Op):
     def init_test_case(self):

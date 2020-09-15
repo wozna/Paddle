@@ -276,7 +276,7 @@ class OpTest(unittest.TestCase):
         infer_dtype(inputs, dtype_set)
         dtype_list = [
             np.dtype(np.float64), np.dtype(np.float32), np.dtype(np.float16),
-            np.dtype(np.int64), np.dtype(np.int32), np.dtype(np.int16),
+            np.dtype(np.int64), np.dtype(np.int32),  np.dtype(np.uint16), np.dtype(np.int16),
             np.dtype(np.int8), np.dtype(np.uint8), np.dtype(np.bool)
         ]
         # check the dtype in dtype_list in order, select the first dtype that in dtype_set
