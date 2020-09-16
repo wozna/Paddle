@@ -293,11 +293,6 @@ void PD_EnableMkldnnQuantizer(PD_AnalysisConfig* config) {
   config->config.EnableMkldnnQuantizer();
 }
 
-void PD_EnableMkldnnBFloat16(PD_AnalysisConfig* config) {
-  PADDLE_ENFORCE_NOT_NULL(config);
-  config->config.EnableMkldnnBFloat16();
-}
-
 bool PD_MkldnnQuantizerEnabled(const PD_AnalysisConfig* config) {
   PADDLE_ENFORCE_NOT_NULL(
       config,

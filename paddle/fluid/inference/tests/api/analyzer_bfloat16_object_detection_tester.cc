@@ -152,10 +152,10 @@ TEST(Analyzer_bfloat16_mobilenet_ssd, bfloat16) {
   SetInput(&input_slots_all);
 
   // configure quantizer
-  q_cfg.EnableMkldnnBFloat16();
+  q_cfg.EnableMkldnnBfloat16();
 
   // 0 is avg_cost, 1 is top1_acc, 2 is top5_acc or mAP
-  CompareBFloat16AndAnalysis(&cfg, &q_cfg, input_slots_all, 2);
+  CompareBfloat16AndAnalysis(&cfg, &q_cfg, input_slots_all, 2);
 }
 
 }  // namespace analysis

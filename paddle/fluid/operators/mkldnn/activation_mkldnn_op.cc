@@ -81,7 +81,7 @@ void eltwise_forward(const framework::ExecutionContext &ctx,
   if (algorithm == mkldnn::algorithm::eltwise_swish) {
     std::swap(alpha, beta);
   } else if (algorithm == dnnl::algorithm::eltwise_bounded_relu) {
-    alpha = ctx.Attr<T>("threshold");
+    alpha = ctx.Attr<float>("threshold");
   }
 
   PADDLE_ENFORCE(
@@ -126,7 +126,7 @@ void eltwise_grad(const framework::ExecutionContext &ctx,
   if (algorithm == mkldnn::algorithm::eltwise_swish) {
     std::swap(alpha, beta);
   } else if (algorithm == dnnl::algorithm::eltwise_bounded_relu) {
-    alpha = ctx.Attr<T>("threshold");
+    alpha = ctx.Attr<float>("threshold");
   }
 
   auto diff_dst_tz = framework::vectorize<int64_t>(diff_y->dims());
@@ -267,7 +267,6 @@ namespace ops = paddle::operators;
   __macro(relu, ReluMKLDNNFunctor, ReluMKLDNNGradFunctor);          \
   __macro(relu6, Relu6MKLDNNFunctor, Relu6MKLDNNGradFunctor);       \
   __macro(leaky_relu, ReluMKLDNNFunctor, ReluMKLDNNGradFunctor);    \
-  __macro(gelu, GeluMKLDNNFunctor, GeluMKLDNNGradFunctor);          \
   __macro(swish, SwishMKLDNNFunctor, SwishMKLDNNGradFunctor);       \
   __macro(sigmoid, SigmoidMKLDNNFunctor, SigmoidMKLDNNGradFunctor); \
   __macro(tanh, TanhMKLDNNFunctor, TanhMKLDNNGradFunctor);          \
@@ -277,8 +276,11 @@ namespace ops = paddle::operators;
 FOR_EACH_MKLDNN_KERNEL_FUNCTOR(REGISTER_ACTIVATION_MKLDNN_KERNEL);
 
 REGISTER_OP_KERNEL(gelu, MKLDNN, ::paddle::platform::CPUPlace,
-      ops::MKLDNNActivationKernel<ops::GeluMKLDNNFunctor<float>>,
-      ops::MKLDNNActivationKernel<ops::GeluMKLDNNFunctor<paddle::platform::bfloat16>>);
-REGISTER_OP_KERNEL(gelu_grad, MKLDNN, ::paddle::platform::CPUPlace, 
-      ops::MKLDNNActivationGradKernel<ops::ReluMKLDNNGradFunctor<float>>,
-      ops::MKLDNNActivationGradKernel<ops::ReluMKLDNNGradFunctor<paddle::platform::bfloat16>>);
+                   ops::MKLDNNActivationKernel<ops::GeluMKLDNNFunctor<float>>,
+                   ops::MKLDNNActivationKernel<
+                       ops::GeluMKLDNNFunctor<paddle::platform::bfloat16>>);
+REGISTER_OP_KERNEL(
+    gelu_grad, MKLDNN, ::paddle::platform::CPUPlace,
+    ops::MKLDNNActivationGradKernel<ops::GeluMKLDNNGradFunctor<float>>,
+    ops::MKLDNNActivationGradKernel<
+        ops::GeluMKLDNNGradFunctor<paddle::platform::bfloat16>>);

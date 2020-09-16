@@ -135,7 +135,7 @@ void SetConfig(AnalysisConfig *cfg, bool use_mkldnn = false,
   cfg->SetModel(FLAGS_infer_model);
   if (use_mkldnn) {
     cfg->EnableMKLDNN();
-    cfg->EnableMkldnnBFloat16();
+    cfg->EnableMkldnnBfloat16();
   }
   if (use_gpu) {
     cfg->EnableUseGpu(100, 0);

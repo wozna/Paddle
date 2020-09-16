@@ -372,12 +372,12 @@ if(WITH_MKLDNN)
   ### BFLOAT16 tests
 
   # build test binary to be used in subsequent tests
-  set(BF16_IMG_CLASS_TEST_APP "test_analyzer_bfloat16_image_classification")
-  set(BF16_IMG_CLASS_TEST_APP_SRC "analyzer_bfloat16_image_classification_tester.cc")
-  inference_analysis_api_test_build(${BF16_IMG_CLASS_TEST_APP} ${BF16_IMG_CLASS_TEST_APP_SRC})
+  #set(BF16_IMG_CLASS_TEST_APP "test_analyzer_bfloat16_image_classification")
+  #set(BF16_IMG_CLASS_TEST_APP_SRC "analyzer_bfloat16_image_classification_tester.cc")
+  #inference_analysis_api_test_build(${BF16_IMG_CLASS_TEST_APP} ${BF16_IMG_CLASS_TEST_APP_SRC})
 
   # resnet50 bfloat16
-  inference_analysis_api_bfloat16_test_run(test_analyzer_bfloat16_resnet50 ${BF16_IMG_CLASS_TEST_APP} ${INT8_RESNET50_MODEL_DIR} ${IMAGENET_DATA_PATH})
+  #inference_analysis_api_bfloat16_test_run(test_analyzer_bfloat16_resnet50 ${BF16_IMG_CLASS_TEST_APP} ${INT8_RESNET50_MODEL_DIR} ${IMAGENET_DATA_PATH})
 
   ### Object detection models
   set(PASCALVOC_DATA_PATH "${INT8_DATA_DIR}/pascalvoc_val_head_300.bin")

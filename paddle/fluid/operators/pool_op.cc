@@ -311,12 +311,6 @@ void Pool2dOpMaker::Make() {
       "(bool, default false) "
       "This parameter is no longer used. Use 'mkldnn_data_type' instead.")
       .SetDefault(false);
-  AddAttr<bool>(
-      "use_bfloat16",
-      "(bool, default false) "
-      "Set to true for operators that should be converted to bfloat16 kernel"
-      "Only used on CPU.")
-      .SetDefault(false);
   AddAttr<std::string>(
       "mkldnn_data_type",
       "(string, default \"float32\"). Data type of mkldnn kernel")

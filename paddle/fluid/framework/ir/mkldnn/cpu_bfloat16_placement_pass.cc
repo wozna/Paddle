@@ -45,7 +45,9 @@ void CPUBfloat16PlacementPass::SetMkldnnDataType(
 
     if ((op->Op()->HasAttr("mkldnn_data_type") ||
          op->Op()->HasProtoAttr("mkldnn_data_type")) &&
-        !platform::HasOpINT8DataType(op->Op())) {
+        !platform::HasOpINT8DataType(op->Op()) &&
+        (op->Op()->GetAttrIfExists<bool>("use_mkldnn") ||
+         op->Op()->Type() == "reshape2")) {
       op->Op()->SetAttr("mkldnn_data_type", std::string("bfloat16"));
       (*bfloat16_operators)++;
     }

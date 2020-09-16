@@ -150,7 +150,8 @@ void CompareResult(const std::vector<PaddleTensor> &outputs,
         float *pdata = static_cast<float *>(out.data.data());
         float *pdata_ref = static_cast<float *>(ref_out.data.data());
         for (size_t j = 0; j < size; ++j) {
-          std::cout << "FP32: " <<  pdata_ref[j] << " BF16: "<< pdata[j] << "\n";
+          std::cout << "FP32: " << pdata_ref[j] << " BF16: " << pdata[j]
+                    << "\n";
           CheckError(pdata_ref[j], pdata[j]);
         }
         break;
@@ -741,34 +742,34 @@ void CompareBfloat16AndAnalysis(
   CompareAccuracy(bf16_outputs, analysis_outputs, compared_idx, "BF16");
 }
 
-void CompareBFloat16AndAnalysisBert(
+void CompareBfloat16AndAnalysisBert(
     const AnalysisConfig *config, const AnalysisConfig *bfloat_config,
     const std::vector<std::vector<PaddleTensor>> &inputs) {
-
   LOG(INFO) << "--- FP32 prediction start ---";
   std::vector<std::vector<PaddleTensor>> analysis_outputs;
   auto *cfg = reinterpret_cast<const PaddlePredictor::Config *>(config);
   float sample_latency_fp32{-1};
 
   if (FLAGS_enable_fp32) {
-    TestOneThreadPrediction(cfg, inputs, &analysis_outputs, false, VarType::FP32,
-                            &sample_latency_fp32);
+    TestOneThreadPrediction(cfg, inputs, &analysis_outputs, false,
+                            VarType::FP32, &sample_latency_fp32);
   }
 
   LOG(INFO) << "--- BF16 prediction start ---";
   std::vector<std::vector<PaddleTensor>> bf16_outputs;
-  auto *b_cfg = reinterpret_cast<const PaddlePredictor::Config *>(bfloat_config);
+  auto *b_cfg =
+      reinterpret_cast<const PaddlePredictor::Config *>(bfloat_config);
   float sample_latency_bf16{-1};
 
   if (FLAGS_enable_bf16) {
-    TestOneThreadPrediction(b_cfg, inputs, &bf16_outputs, true,  VarType::FP32,
+    TestOneThreadPrediction(b_cfg, inputs, &bf16_outputs, true, VarType::FP32,
                             &sample_latency_bf16);
   }
-  SummarizePerformance("FP32", sample_latency_fp32, "BF16", sample_latency_bf16);
+  SummarizePerformance("FP32", sample_latency_fp32, "BF16",
+                       sample_latency_bf16);
 
   CompareResult(analysis_outputs.back(), bf16_outputs.back());
 }
-
 
 void CompareAnalysisAndAnalysis(
     const AnalysisConfig *config1, const AnalysisConfig *config2,

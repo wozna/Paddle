@@ -47,7 +47,7 @@ def convert_float_to_uint16(float_list):
 @skip_check_grad_ci(
     reason="TODO: this test cannot use white list to skip check_grad, need to add check_grad."
 )
-class TestBFloat16MkldnnInference(TestConv2dOp):
+class TestBfloat16MkldnnInference(TestConv2dOp):
     def setUp(self):
         self.__class__.op_type = "conv2d"
         self.dtype = np.float32

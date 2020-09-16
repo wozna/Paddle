@@ -1,11 +1,8 @@
 /* Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -169,7 +166,7 @@ class MatMulFactory {
   void CorrectStridesWhenFloatOutputFused(const ExecutionContext& ctx,
                                           const memory::dim N, memory::dim b,
                                           memory::dims* out_strides) const {
-    if (!IsInt8<OT>() && !IsBfloat16<OT>() && IsOutputFused(ctx)){ 
+    if (!IsInt8<OT>() && !IsBfloat16<OT>() && IsOutputFused(ctx)) {
       *out_strides = {N, b * N, 1};
     }
   }
@@ -353,11 +350,12 @@ static void ExecuteMatMul(const ExecutionContext& ctx) {
   constexpr bool fuse_relu = false;  // TODO(intel): Enable eltwise fuses
   if (force_fp32_output || ((!is_bfloat16) && (!is_bfloat16))) {
     GetPrimitiveFactory<XT, YT, float>(ctx)->CreateAndExecute(ctx);
-  }else if (is_bfloat16) {
-    GetPrimitiveFactory<XT, YT, paddle::platform::bfloat16>(ctx)->CreateAndExecute(ctx);
-  }else if (fuse_relu) {
+  } else if (is_bfloat16) {
+    GetPrimitiveFactory<XT, YT, paddle::platform::bfloat16>(ctx)
+        ->CreateAndExecute(ctx);
+  } else if (fuse_relu) {
     GetPrimitiveFactory<XT, YT, uint8_t>(ctx)->CreateAndExecute(ctx);
-  }else {
+  } else {
     GetPrimitiveFactory<XT, YT, int8_t>(ctx)->CreateAndExecute(ctx);
   }
 }
