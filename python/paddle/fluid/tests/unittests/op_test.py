@@ -172,12 +172,29 @@ def copy_bits_from_float_to_uint16(f):
     return struct.unpack('<I', struct.pack('<f', f))[0] >> 16
 
 
+def copy_bits_from_uint16_to_float(H):
+    I = np.int32(H) << 16
+    return struct.unpack('<f', struct.pack('<I', I))[0]
+
+
 def convert_float_to_uint16(float_list):
     new_output = []
     for x in np.nditer(float_list):
         new_output.append(np.uint16(copy_bits_from_float_to_uint16(x)))
 
     return np.reshape(new_output, float_list.shape).view(np.uint16)
+
+
+def convert_uint16_to_float(uint16_list):
+    new_output = []
+    for first in uint16_list:
+        for second in first:
+            for third in second:
+                for fourth in third:
+                    new_output.append(
+                        np.float32(copy_bits_from_uint16_to_float(fourth)))
+
+    return np.reshape(new_output, uint16_list.shape).view(np.float32)
 
 
 class OpTest(unittest.TestCase):
