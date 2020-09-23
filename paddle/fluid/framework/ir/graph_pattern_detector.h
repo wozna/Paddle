@@ -1163,11 +1163,15 @@ struct LastBfloat16Ops : public PatternBase {
 struct FirstBfloat16Ops : public PatternBase {
   FirstBfloat16Ops(PDPattern* pattern, const std::string& name_scope)
       : PatternBase(pattern, name_scope, "first_bfloat16_ops") {}
-  PDNode* operator()();
+  PDNode* operator()(int times);
 
-  PATTERN_DECL_NODE(prev_op);
-  PATTERN_DECL_NODE(op_in);
-  PATTERN_DECL_NODE(op);
+  std::string GetNodeName(const std::string& op_type) {
+    return PDNodeName(name_scope_, repr_, id_, op_type);
+  }
+
+  PDNode* GetPDNode(const std::string& op_type) {
+    return pattern->RetrieveNode(GetNodeName(op_type));
+  }
 };
 
 // Pattern used for enforcing inplace computation for in-place computation

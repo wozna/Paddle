@@ -72,7 +72,7 @@ void PreparePass(std::unique_ptr<ir::Graph>* graph, const ProgramDesc& prog,
 }
 
 static const std::initializer_list<std::string> variable_names{
-    "z", "a", "b", "c", "d", "e", "f", "g", "h", "i"};
+    "z", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m"};
 
 ProgramDesc BuildProgramDesc(bool use_mkldnn) {
   ProgramDesc prog;
@@ -89,6 +89,10 @@ ProgramDesc BuildProgramDesc(bool use_mkldnn) {
   SetOp(&prog, "reshape2", "Reshape1", {"f"}, {"g"}, use_mkldnn, "bfloat16");
   SetOp(&prog, "concat", "Concat1", {"g"}, {"h"}, use_mkldnn, "bfloat16");
   SetOp(&prog, "dropout", "Dropout3", {"h"}, {"i"}, use_mkldnn, "float32");
+    SetOp(&prog, "dropout", "Dropout3", {"j"}, {"k"}, use_mkldnn, "float32");
+  SetOp(&prog, "matmul", "Matmul", {"i", "k"}, {"l"}, use_mkldnn, "bfloat16");
+  SetOp(&prog, "pool2d", "Pool2", {"l"}, {"m"}, use_mkldnn, "bfloat16");
+
 
   return prog;
 }
@@ -133,9 +137,9 @@ void MainTest(const ProgramDesc& prog, int conv_count, int pool_count,
 
 TEST(CpuQuantizePass, quantize) {
   bool use_mkldnn = true;
-  // 1 quantize + 1 dequantize
+  // 2 quantize + 1 dequantize
   int added_nodes = 2;
-  MainTest(BuildProgramDesc(use_mkldnn), 2, 1, 1, 1, 2, added_nodes);
+  MainTest(BuildProgramDesc(use_mkldnn), 2, 2, 2, 1, 3, added_nodes);
 }
 
 }  // namespace ir

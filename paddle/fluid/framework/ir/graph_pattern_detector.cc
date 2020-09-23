@@ -1895,7 +1895,7 @@ PDNode *patterns::QuantizePlacement::operator()(
 PDNode *patterns::Bfloat16Placement::operator()(
     const std::unordered_set<std::string> &bfloat16_enabled_op_types) {
   std::unordered_set<std::string> supported_op_types =
-      std::unordered_set<std::string>({"concat", "conv2d", "elementwise_add",
+      std::unordered_set<std::string>({"concat", "conv2d", //"elementwise_add",
                                        "fc", "gelu", "layer_norm", "matmul",
                                        "pool2d", "prior_box", "relu",
                                        "reshape2", "softmax", "transpose2"});
@@ -1952,22 +1952,33 @@ PDNode *patterns::LastBfloat16Ops::operator()() {
   return next_op;
 }
 
-PDNode *patterns::FirstBfloat16Ops::operator()() {
-  auto *prev_op = pattern->NewNode(prev_op_repr())->assert_is_op();
-  prev_op->assert_more([&](Node *node) {
+PDNode *patterns::FirstBfloat16Ops::operator()(int times) {
+  std::vector<PDNode *> nodes;
+
+  for (int i = 0; i < times; i++) {
+    nodes.push_back(
+        pattern->NewNode(GetNodeName("prev_op" + std::to_string(i)))
+            ->assert_is_op());
+    nodes[i*2]->assert_more([&](Node *node) {
     return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
            "bfloat16";
   });
-  auto *op_in = pattern->NewNode(op_in_repr())->AsOutput();
+    nodes.push_back(
+        pattern->NewNode(GetNodeName("op_in" + std::to_string(i)))
+            ->AsOutput());
+  }
 
-  auto *op = pattern->NewNode(op_repr())->assert_is_op();
+  auto *op = pattern->NewNode(GetNodeName("op"))->assert_is_op();
   op->assert_more([&](Node *node) {
     return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") ==
            "bfloat16";
   });
 
-  prev_op->LinksTo({op_in});
-  op->LinksFrom({op_in});
+  for (int i = 0; i < times; i++) {
+    nodes[i*2]->LinksTo({nodes[(i*2)+1]});
+    op->LinksFrom({nodes[(i*2)+1]});
+ }
+ 
   return op;
 }
 

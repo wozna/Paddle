@@ -23,7 +23,7 @@ namespace ir {
 
 class CPUBFloat16Pass : public Pass {
  protected:
-  void SetInputDataType(ir::Graph* graph) const;
+  void SetInputDataType(ir::Graph* graph, int times) const;
   void SetOutputDataType(ir::Graph* graph) const;
   void ApplyImpl(ir::Graph* graph) const override;
 };

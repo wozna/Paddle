@@ -16,6 +16,8 @@ limitations under the License. */
 #include <vector>
 
 #include "paddle/fluid/framework/ir/graph_pattern_detector.h"
+#include "paddle/fluid/framework/ir/graph_viz_pass.h"
+#include "paddle/fluid/framework/ir/node.h"
 #include "paddle/fluid/platform/mkldnn_helper.h"
 #include "paddle/fluid/string/pretty_log.h"
 
@@ -32,55 +34,74 @@ void UnlinkNodes(ir::Node* a, ir::Node* b) {
                   b->inputs.end());
 }
 
-void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph) const {
+void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph, int times) const {
   GraphPatternDetector gpd;
-  patterns::FirstBfloat16Ops bfloat16_ops{gpd.mutable_pattern(),
-                                          "first_bfloat16_ops"};
-  bfloat16_ops();
+  patterns::FirstBfloat16Ops pattern{gpd.mutable_pattern(),
+                                     "first_bfloat16_ops"};
+  pattern(times);
   int quantize_counter = 0;
   auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
                      Graph* g) {
-    GET_IR_NODE_FROM_SUBGRAPH(prev_op, prev_op, bfloat16_ops);
-    GET_IR_NODE_FROM_SUBGRAPH(op_in, op_in, bfloat16_ops);
-    GET_IR_NODE_FROM_SUBGRAPH(op, op, bfloat16_ops);
+    std::vector<Node*> nodes;
 
-    if (op->Op()->Type() != "conv2d" && prev_op->Op()->Type() != "quantize") {
-      VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
-      auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
+    for (int i = 0; i < times; i++) {
+      PADDLE_ENFORCE_NOT_NULL(
+          subgraph.at(pattern.GetPDNode("prev_op" + std::to_string(i))),
+          platform::errors::NotFound("Can not find prev_op%d in subgraph.", i));
+      PADDLE_ENFORCE_NOT_NULL(
+          subgraph.at(pattern.GetPDNode("op_in" + std::to_string(i))),
+          platform::errors::NotFound("Can not find op_in%d in subgraph.", i));
+      nodes.push_back(
+          subgraph.at(pattern.GetPDNode("prev_op" + std::to_string(i))));
+      nodes.push_back(
+          subgraph.at(pattern.GetPDNode("op_in" + std::to_string(i))));
+    }
+    Node* op = subgraph.at(pattern.GetPDNode("op"));
 
-      // create a quantize op node
-      OpDesc q_desc;
-      q_desc.SetType("quantize");
-      q_desc.SetInput("Input", std::vector<std::string>({op_in->Name()}));
-      q_desc.SetOutput("Output",
-                       std::vector<std::string>({quantize_out_node->Name()}));
-      q_desc.SetAttr("Scale", 1.f);
-      q_desc.SetAttr("bfloat16", true);
-      q_desc.SetAttr("output_format", Has("data_layout")
-                                          ? Get<std::string>("data_layout")
-                                          : "NCHW");
-      auto quantize_op = g->CreateOpNode(&q_desc);  // OpDesc will be copied.
+    if (op->Op()->Type() != "conv2d") {
+      for (int i = 0; i < times; i++) {
+        if (nodes[i * 2]->Op()->Type() != "quantize") {
+          VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
+          auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
 
-      std::string op_input_name;
-      for (auto name : op->Op()->InputNames()) {
-        for (auto input_name : op->Op()->Input(name)) {
-          if (input_name == op_in->Name()) op_input_name = name;
+          // create a quantize op node
+          OpDesc q_desc;
+          q_desc.SetType("quantize");
+          q_desc.SetInput(
+              "Input", std::vector<std::string>({nodes[(i * 2) + 1]->Name()}));
+          q_desc.SetOutput(
+              "Output", std::vector<std::string>({quantize_out_node->Name()}));
+          q_desc.SetAttr("Scale", 1.f);
+          q_desc.SetAttr("bfloat16", true);
+          q_desc.SetAttr("output_format", Has("data_layout")
+                                              ? Get<std::string>("data_layout")
+                                              : "NCHW");
+          auto quantize_op =
+              g->CreateOpNode(&q_desc);  // OpDesc will be copied.
+
+          std::string op_input_name;
+          for (auto name : op->Op()->InputNames()) {
+            for (auto input_name : op->Op()->Input(name)) {
+              if (input_name == nodes[(i * 2) + 1]->Name())
+                op_input_name = name;
+            }
+          }
+
+          PADDLE_ENFORCE_NE(
+              op_input_name.empty(), true,
+              platform::errors::NotFound(
+                  "Operator before operator should have input as op output"));
+
+          op->Op()->SetInput(op_input_name, std::vector<std::string>(
+                                                {quantize_out_node->Name()}));
+
+          UnlinkNodes(nodes[(i * 2) + 1], op);
+          IR_NODE_LINK_TO(nodes[(i * 2) + 1], quantize_op);
+          IR_NODE_LINK_TO(quantize_op, quantize_out_node);
+          IR_NODE_LINK_TO(quantize_out_node, op);
+          quantize_counter++;
         }
       }
-
-      PADDLE_ENFORCE_NE(
-          op_input_name.empty(), true,
-          platform::errors::NotFound(
-              "Operator before operator should have input as op output"));
-
-      op->Op()->SetInput(op_input_name,
-                         std::vector<std::string>({quantize_out_node->Name()}));
-
-      UnlinkNodes(op_in, op);
-      IR_NODE_LINK_TO(op_in, quantize_op);
-      IR_NODE_LINK_TO(quantize_op, quantize_out_node);
-      IR_NODE_LINK_TO(quantize_out_node, op);
-      quantize_counter++;
     }
   };
   gpd(graph, handler);
@@ -148,7 +169,8 @@ void CPUBFloat16Pass::SetOutputDataType(ir::Graph* graph) const {
 }
 
 void CPUBFloat16Pass::ApplyImpl(ir::Graph* graph) const {
-  SetInputDataType(graph);
+  SetInputDataType(graph, 1);
+  SetInputDataType(graph, 2);
   SetOutputDataType(graph);
 }
 

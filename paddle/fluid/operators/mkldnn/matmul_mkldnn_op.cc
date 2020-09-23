@@ -348,7 +348,7 @@ static void ExecuteMatMul(const ExecutionContext& ctx) {
   constexpr bool is_bfloat16 = IsBfloat16<XT>();
   const bool force_fp32_output = ctx.Attr<bool>("force_fp32_output");
   constexpr bool fuse_relu = false;  // TODO(intel): Enable eltwise fuses
-  if (force_fp32_output || ((!is_bfloat16) && (!is_bfloat16))) {
+  if (force_fp32_output || ((!is_int8) && (!is_bfloat16))) {
     GetPrimitiveFactory<XT, YT, float>(ctx)->CreateAndExecute(ctx);
   } else if (is_bfloat16) {
     GetPrimitiveFactory<XT, YT, paddle::platform::bfloat16>(ctx)
