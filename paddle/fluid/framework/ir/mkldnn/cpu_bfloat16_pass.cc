@@ -60,7 +60,9 @@ void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph, int times) const {
 
     if (op->Op()->Type() != "conv2d") {
       for (int i = 0; i < times; i++) {
-        if (nodes[i * 2]->Op()->Type() != "quantize") {
+        std::cout << nodes[i * 2]->Op()->Type() << " --> " << nodes[(i * 2) + 1]->Name() << " ---> " << op->Op()->Type() << "\n"; 
+        if (nodes[i * 2]->Op()->Type() != "quantize" && nodes[i * 2]->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") != "bfloat16") {
+          
           VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
           auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
 
@@ -86,7 +88,7 @@ void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph, int times) const {
                 op_input_name = name;
             }
           }
-
+          std::cout << op->Op()->Type() << " -- > " << op_input_name << " \n";
           PADDLE_ENFORCE_NE(
               op_input_name.empty(), true,
               platform::errors::NotFound(

@@ -48,6 +48,7 @@ void CPUBfloat16PlacementPass::SetMkldnnDataType(
         !platform::HasOpINT8DataType(op->Op()) &&
         (op->Op()->GetAttrIfExists<bool>("use_mkldnn") ||
          op->Op()->Type() == "reshape2")) {
+           if(op->Op()->Type() == "matmul") std::cout << " matmul \n";
       op->Op()->SetAttr("mkldnn_data_type", std::string("bfloat16"));
       (*bfloat16_operators)++;
     }
@@ -66,7 +67,7 @@ void CPUBfloat16PlacementPass::RemoveOrhanedOperators(
   auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
                      Graph* g) {
     GET_IR_NODE_FROM_SUBGRAPH(op, op, orphaned_bfloat16_pattern);
-
+     std::cout << "Removed " << op->Op()->Type() << "\n";
     op->Op()->SetAttr("mkldnn_data_type", std::string("float32"));
     bfloat16_operators--;
   };
