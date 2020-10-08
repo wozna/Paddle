@@ -232,7 +232,7 @@ class ConvMKLDNNHandlerT
         }
       }
       auto data_type = mkldnn::memory::data_type::f32;
-      if (ctx.Attr<std::string>("mkldnn_data_type") == "bfloat16" ||
+      if (ctx.Attr<int>("mkldnn_data_type") == BF16 ||
           std::is_same<T_out, platform::bfloat16>::value)
         data_type = mkldnn::memory::data_type::bf16;
 
@@ -394,7 +394,8 @@ class ConvMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
                           "Operator DNNL Conv must use CPUPlace"));
     bool is_INT8 =
         std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value;
-    bool is_BFLOAT16 = ctx.Attr<std::string>("mkldnn_data_type") == "bfloat16";
+    bool is_BFLOAT16 =
+        ctx.Attr<int>("mkldnn_data_type") == BF16;
     auto residual_param = ctx.Input<Tensor>("ResidualData");
     bool fuse_residual_conn = ctx.Attr<bool>("fuse_residual_connection");
     std::string fuse_activation = ctx.Attr<std::string>("fuse_activation");

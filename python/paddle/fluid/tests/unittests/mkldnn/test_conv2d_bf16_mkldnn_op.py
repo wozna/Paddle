@@ -47,7 +47,7 @@ class TestConv2dBf16Op(TestConv2dOp):
         self._cpu_only = True
         self.weight_type = np.float32
         self.input_type = np.float32
-        self.mkldnn_data_type = "bfloat16"
+        self.mkldnn_data_type = core.VarDesc.VarType.BF16
         self.force_fp32_output = False
         self.init_group()
         self.init_dilation()
