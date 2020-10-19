@@ -64,8 +64,6 @@ void PreparePass(std::unique_ptr<ir::Graph>* graph, const ProgramDesc& prog,
                  int* original_nodes_num, int* current_nodes_num) {
   auto pass = PassRegistry::Instance().Get("cpu_bfloat16_pass");
 
-  graph->reset(pass->Apply(graph->release()));
-
   *original_nodes_num = (*graph)->Nodes().size();
   (*graph).reset(pass->Apply((*graph).release()));
   *current_nodes_num = (*graph)->Nodes().size();
@@ -88,9 +86,9 @@ ProgramDesc BuildProgramDesc(bool use_mkldnn) {
         "bfloat16");
   SetOp(&prog, "reshape2", "Reshape1", {"f"}, {"g"}, use_mkldnn, "bfloat16");
   SetOp(&prog, "concat", "Concat1", {"g"}, {"h"}, use_mkldnn, "bfloat16");
-  SetOp(&prog, "dropout", "Dropout3", {"h"}, {"i"}, use_mkldnn, "float32");
-    SetOp(&prog, "dropout", "Dropout3", {"j"}, {"k"}, use_mkldnn, "float32");
-  SetOp(&prog, "matmul", "Matmul", {"i", "k"}, {"l"}, use_mkldnn, "bfloat16");
+ // SetOp(&prog, "dropout", "Dropout3", {"h"}, {"i"}, use_mkldnn, "float32");
+  SetOp(&prog, "dropout", "Dropout3", {"j"}, {"k"}, use_mkldnn, "float32");
+  SetOp(&prog, "matmul", "Matmul", {"h", "k"}, {"l"}, use_mkldnn, "bfloat16");
   SetOp(&prog, "pool2d", "Pool2", {"l"}, {"m"}, use_mkldnn, "bfloat16");
 
 
@@ -112,6 +110,7 @@ void MainTest(const ProgramDesc& prog, int conv_count, int pool_count,
   int transpose2_nodes_count = 0;
 
   for (auto* node : graph->Nodes()) {
+    std::cout << node->Name() << " \n";
     if (node->IsOp()) {
       auto* op = node->Op();
       if (op->Type() == "conv2d") {
@@ -137,9 +136,9 @@ void MainTest(const ProgramDesc& prog, int conv_count, int pool_count,
 
 TEST(CpuQuantizePass, quantize) {
   bool use_mkldnn = true;
-  // 2 quantize + 1 dequantize
-  int added_nodes = 2;
-  MainTest(BuildProgramDesc(use_mkldnn), 2, 2, 2, 1, 3, added_nodes);
+  // 2 quantize + 2 quantize in
+  int added_nodes = 4;
+  MainTest(BuildProgramDesc(use_mkldnn), 2, 2, 1, 2, 0, added_nodes);
 }
 
 }  // namespace ir

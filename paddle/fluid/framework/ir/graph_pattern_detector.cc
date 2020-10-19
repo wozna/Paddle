@@ -1960,10 +1960,10 @@ PDNode *patterns::FirstBfloat16Ops::operator()(int times) {
     nodes.push_back(
         pattern->NewNode(GetNodeName("prev_op" + std::to_string(i)))
             ->assert_is_op());
-  //   nodes[i*2]->assert_more([&](Node *node) {
-  //   return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
-  //          "bfloat16";
-  // });
+    nodes[i*2]->assert_more([&](Node *node) {
+    return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
+           "bfloat16";
+  });
     nodes.push_back(
         pattern->NewNode(GetNodeName("op_in" + std::to_string(i)))
             ->AsOutput());
@@ -1982,6 +1982,29 @@ PDNode *patterns::FirstBfloat16Ops::operator()(int times) {
  
   return op;
 }
+
+PDNode *patterns::DoubleOpsBfloat16::operator()() {
+
+ auto *op_X = pattern->NewNode(op_X_repr())->assert_is_op();
+
+ auto *op_X_out = pattern->NewNode(op_X_out_repr())->assert_is_op_input("elementwise_add", "X");
+
+  auto *op_Y = pattern->NewNode(op_Y_repr())->assert_is_op();
+
+ auto *op_Y_out = pattern->NewNode(op_Y_out_repr())->assert_is_op_input("elementwise_add", "Y");
+
+  auto *op = pattern->NewNode(op_repr())->assert_is_op("elementwise_add");
+  op->assert_more([&](Node *node) {
+    return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") ==
+           "bfloat16";
+  });
+  
+  op_X->LinksTo({op_X_out});
+  op_Y->LinksTo({op_Y_out});
+  op->LinksFrom({op_X_out, op_Y_out});
+  return op;
+}
+
 
 PDNode *patterns::MKLDNNInPlace::operator()() {
   const std::unordered_set<std::string> &supported_op_types = {

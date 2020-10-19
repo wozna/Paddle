@@ -1174,6 +1174,19 @@ struct FirstBfloat16Ops : public PatternBase {
   }
 };
 
+struct DoubleOpsBfloat16 : public PatternBase {
+  DoubleOpsBfloat16(PDPattern* pattern, const std::string& name_scope)
+      : PatternBase(pattern, name_scope, "double_ops_bfloat16") {}
+  PDNode* operator()();
+
+  PATTERN_DECL_NODE(op_X);
+  PATTERN_DECL_NODE(op_Y);
+  PATTERN_DECL_NODE(op_X_out);
+  PATTERN_DECL_NODE(op_Y_out);
+  PATTERN_DECL_NODE(op);
+};
+
+
 // Pattern used for enforcing inplace computation for in-place computation
 // supporting DNNL ops. softmax, batch_norm and layer_norm
 struct MKLDNNInPlace : public PatternBase {

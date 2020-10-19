@@ -34,6 +34,79 @@ void UnlinkNodes(ir::Node* a, ir::Node* b) {
                   b->inputs.end());
 }
 
+void AddQuantize(Graph* g, ir::Node* op, ir::Node* op_in, int* quantize_counter, std::string op_input_name = "") {
+  VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
+  auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
+
+  // create a quantize op nodep
+  OpDesc q_desc;
+  q_desc.SetType("quantize");
+  q_desc.SetInput("Input", std::vector<std::string>({op_in->Name()}));
+  q_desc.SetOutput("Output",
+                   std::vector<std::string>({quantize_out_node->Name()}));
+  q_desc.SetAttr("Scale", 1.f);
+  q_desc.SetAttr("bfloat16", true);
+  q_desc.SetAttr("output_format",
+                 op->Op()->HasAttr("data_layout") ? op->Op()->GetAttrIfExists<std::string>("data_layout") : "NCHW");
+  auto quantize_op = g->CreateOpNode(&q_desc);  // OpDesc will be copied.
+
+  if(op_input_name.empty()){
+    for (auto name : op->Op()->InputNames()) {
+      for (auto input_name : op->Op()->Input(name)) {
+        if (input_name == op_in->Name()) op_input_name = name;
+      }
+    }
+  }
+  std::cout << op_in->Name() << " --> " << op->Op()->Type() << " --> " << op_input_name << "\n";
+  // 1]->Name() << " ---> " << op->Op()->Type() << "\n";
+  //  std::cout << " -->  added quantize -- > " << op_input_name << " \n";
+ // if(op_input_name.empty()) return;
+  PADDLE_ENFORCE_NE(
+      op_input_name.empty(), true,
+      platform::errors::NotFound(
+          "Operator before operator should have input as op output"));
+
+  op->Op()->SetInput(op_input_name,
+                     std::vector<std::string>({quantize_out_node->Name()}));
+
+  UnlinkNodes(op_in, op);
+  IR_NODE_LINK_TO(op_in, quantize_op);
+  IR_NODE_LINK_TO(quantize_op, quantize_out_node);
+  IR_NODE_LINK_TO(quantize_out_node, op);
+  quantize_counter++;
+}
+
+void CPUBFloat16Pass::SetDoubleOpsDataType(ir::Graph* graph) const {
+  GraphPatternDetector gpd;
+  patterns::DoubleOpsBfloat16 pattern{gpd.mutable_pattern(),
+                                      "double_ops_bfloat16"};
+  pattern();
+  int quantize_counter = 0;
+  auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
+                     Graph* g) {
+    GET_IR_NODE_FROM_SUBGRAPH(op_X, op_X, pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(op_Y, op_Y, pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(op_X_out, op_X_out, pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(op_Y_out, op_Y_out, pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(op, op, pattern);
+
+    if (op->Op()->Type() != "conv2d") {
+      if (op_X->Op()->Type() != "quantize" && op_X->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
+          "bfloat16"){
+
+        AddQuantize(g, op, op_X_out, &quantize_counter, "X");
+          }
+      if (op_Y->Op()->Type() != "quantize" && op_Y->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
+          "bfloat16"){
+        AddQuantize(g, op, op_Y_out, &quantize_counter, "Y");
+          }
+    }
+  };  
+gpd(graph, handler);
+PrettyLogDetail("---    added %d quantize op before bfloat16 op",
+                quantize_counter);
+}  // namespace framework
+
 void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph, int times) const {
   GraphPatternDetector gpd;
   patterns::FirstBfloat16Ops pattern{gpd.mutable_pattern(),
@@ -60,48 +133,8 @@ void CPUBFloat16Pass::SetInputDataType(ir::Graph* graph, int times) const {
 
     if (op->Op()->Type() != "conv2d") {
       for (int i = 0; i < times; i++) {
-        std::cout << nodes[i * 2]->Op()->Type() << " --> " << nodes[(i * 2) + 1]->Name() << " ---> " << op->Op()->Type() << "\n"; 
-        if (nodes[i * 2]->Op()->Type() != "quantize" && nodes[i * 2]->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") != "bfloat16") {
-          
-          VarDesc quantize_out_desc(patterns::PDNodeName("quantize", "out"));
-          auto* quantize_out_node = g->CreateVarNode(&quantize_out_desc);
-
-          // create a quantize op node
-          OpDesc q_desc;
-          q_desc.SetType("quantize");
-          q_desc.SetInput(
-              "Input", std::vector<std::string>({nodes[(i * 2) + 1]->Name()}));
-          q_desc.SetOutput(
-              "Output", std::vector<std::string>({quantize_out_node->Name()}));
-          q_desc.SetAttr("Scale", 1.f);
-          q_desc.SetAttr("bfloat16", true);
-          q_desc.SetAttr("output_format", Has("data_layout")
-                                              ? Get<std::string>("data_layout")
-                                              : "NCHW");
-          auto quantize_op =
-              g->CreateOpNode(&q_desc);  // OpDesc will be copied.
-
-          std::string op_input_name;
-          for (auto name : op->Op()->InputNames()) {
-            for (auto input_name : op->Op()->Input(name)) {
-              if (input_name == nodes[(i * 2) + 1]->Name())
-                op_input_name = name;
-            }
-          }
-          std::cout << op->Op()->Type() << " -- > " << op_input_name << " \n";
-          PADDLE_ENFORCE_NE(
-              op_input_name.empty(), true,
-              platform::errors::NotFound(
-                  "Operator before operator should have input as op output"));
-
-          op->Op()->SetInput(op_input_name, std::vector<std::string>(
-                                                {quantize_out_node->Name()}));
-
-          UnlinkNodes(nodes[(i * 2) + 1], op);
-          IR_NODE_LINK_TO(nodes[(i * 2) + 1], quantize_op);
-          IR_NODE_LINK_TO(quantize_op, quantize_out_node);
-          IR_NODE_LINK_TO(quantize_out_node, op);
-          quantize_counter++;
+        if (nodes[i * 2]->Op()->Type() != "quantize") {
+          AddQuantize(g, op, nodes[(i * 2) + 1], &quantize_counter);
         }
       }
     }
@@ -171,12 +204,12 @@ void CPUBFloat16Pass::SetOutputDataType(ir::Graph* graph) const {
 }
 
 void CPUBFloat16Pass::ApplyImpl(ir::Graph* graph) const {
+  SetDoubleOpsDataType(graph);
   SetInputDataType(graph, 1);
-  SetInputDataType(graph, 2);
   SetOutputDataType(graph);
 }
 
-}  // namespace ir
+}  // namespace paddle
 }  // namespace framework
 }  // namespace paddle
 

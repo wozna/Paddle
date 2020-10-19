@@ -48,7 +48,6 @@ void CPUBfloat16PlacementPass::SetMkldnnDataType(
         !platform::HasOpINT8DataType(op->Op()) &&
         (op->Op()->GetAttrIfExists<bool>("use_mkldnn") ||
          op->Op()->Type() == "reshape2")) {
-           if(op->Op()->Type() == "matmul") std::cout << " matmul \n";
       op->Op()->SetAttr("mkldnn_data_type", std::string("bfloat16"));
       (*bfloat16_operators)++;
     }
@@ -77,7 +76,7 @@ void CPUBfloat16PlacementPass::RemoveOrhanedOperators(
 void CPUBfloat16PlacementPass::ApplyImpl(ir::Graph* graph) const {
   int bfloat16_operators = 0;
   SetMkldnnDataType(graph, &bfloat16_operators);
-  RemoveOrhanedOperators(graph, &bfloat16_operators);
+//  RemoveOrhanedOperators(graph, &bfloat16_operators);
   PrettyLogDetail("---    marked %d operators to bfloat16 ",
                   bfloat16_operators);
 }

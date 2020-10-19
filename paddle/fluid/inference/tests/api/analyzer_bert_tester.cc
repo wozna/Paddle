@@ -190,7 +190,7 @@ void compare(bool use_mkldnn = false) {
   AnalysisConfig q_cfg;
   SetConfig(&q_cfg);
   if (use_mkldnn) {
-    // q_cfg.SwitchIrDebug();
+    q_cfg.SwitchIrDebug();
     // cfg.EnableMKLDNN();
     q_cfg.EnableMKLDNN();
     q_cfg.EnableMkldnnBfloat16();
