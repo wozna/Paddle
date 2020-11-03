@@ -1,11 +1,8 @@
 /* Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +12,7 @@ limitations under the License. */
 #pragma once
 
 #include <memory>
+
 #include "paddle/fluid/framework/ir/pass.h"
 
 namespace paddle {
@@ -23,8 +21,7 @@ namespace ir {
 
 class CPUBFloat16Pass : public Pass {
  protected:
-  void SetDoubleOpsDataType(ir::Graph* graph) const;
-  void SetInputDataType(ir::Graph* graph, int times) const;
+  void SetInputDataType(ir::Graph* graph) const;
   void SetOutputDataType(ir::Graph* graph) const;
   void ApplyImpl(ir::Graph* graph) const override;
 };

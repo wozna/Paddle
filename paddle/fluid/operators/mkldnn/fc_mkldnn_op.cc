@@ -530,8 +530,11 @@ static void ExecuteFc(const ExecutionContext& ctx, const LoDTensor* input,
   constexpr bool is_int8 =
       std::is_same<T_in, int8_t>::value || std::is_same<T_in, uint8_t>::value;
   bool is_bfloat16 = std::is_same<T_in, paddle::platform::bfloat16>::value;
-  if (!is_int8 || force_fp32_output) {
+  if ((!is_int8 && !is_bfloat16) || force_fp32_output) {
     GetPrimitiveFactory<T_in, T_w, float>(dev_ctx, prim_key)
+        ->ExecuteFcPrimitive(input, w, bias, output, dev_ctx, ctx);
+  } else if (is_bfloat16) {
+    GetPrimitiveFactory<T_in, T_w, platform::bfloat16>(dev_ctx, prim_key)
         ->ExecuteFcPrimitive(input, w, bias, output, dev_ctx, ctx);
   } else if (fuse_relu) {
     GetPrimitiveFactory<T_in, T_w, uint8_t>(dev_ctx, prim_key)

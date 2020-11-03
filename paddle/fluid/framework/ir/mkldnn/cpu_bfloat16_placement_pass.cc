@@ -1,11 +1,8 @@
 /* Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -66,7 +63,7 @@ void CPUBfloat16PlacementPass::RemoveOrhanedOperators(
   auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
                      Graph* g) {
     GET_IR_NODE_FROM_SUBGRAPH(op, op, orphaned_bfloat16_pattern);
-     std::cout << "Removed " << op->Op()->Type() << "\n";
+
     op->Op()->SetAttr("mkldnn_data_type", std::string("float32"));
     bfloat16_operators--;
   };
@@ -76,7 +73,7 @@ void CPUBfloat16PlacementPass::RemoveOrhanedOperators(
 void CPUBfloat16PlacementPass::ApplyImpl(ir::Graph* graph) const {
   int bfloat16_operators = 0;
   SetMkldnnDataType(graph, &bfloat16_operators);
-//  RemoveOrhanedOperators(graph, &bfloat16_operators);
+  RemoveOrhanedOperators(graph, &bfloat16_operators);
   PrettyLogDetail("---    marked %d operators to bfloat16 ",
                   bfloat16_operators);
 }

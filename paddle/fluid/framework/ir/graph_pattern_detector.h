@@ -1163,26 +1163,10 @@ struct LastBfloat16Ops : public PatternBase {
 struct FirstBfloat16Ops : public PatternBase {
   FirstBfloat16Ops(PDPattern* pattern, const std::string& name_scope)
       : PatternBase(pattern, name_scope, "first_bfloat16_ops") {}
-  PDNode* operator()(int times);
-
-  std::string GetNodeName(const std::string& op_type) {
-    return PDNodeName(name_scope_, repr_, id_, op_type);
-  }
-
-  PDNode* GetPDNode(const std::string& op_type) {
-    return pattern->RetrieveNode(GetNodeName(op_type));
-  }
-};
-
-struct DoubleOpsBfloat16 : public PatternBase {
-  DoubleOpsBfloat16(PDPattern* pattern, const std::string& name_scope)
-      : PatternBase(pattern, name_scope, "double_ops_bfloat16") {}
   PDNode* operator()();
 
-  PATTERN_DECL_NODE(op_X);
-  PATTERN_DECL_NODE(op_Y);
-  PATTERN_DECL_NODE(op_X_out);
-  PATTERN_DECL_NODE(op_Y_out);
+  PATTERN_DECL_NODE(prev_op);
+  PATTERN_DECL_NODE(op_in);
   PATTERN_DECL_NODE(op);
 };
 
