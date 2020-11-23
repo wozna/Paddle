@@ -51,12 +51,18 @@ endfunction()
 function(inference_analysis_api_test target install_dir filename)
     inference_analysis_test(${target} SRCS ${filename}
         EXTRA_DEPS ${INFERENCE_EXTRA_DEPS}
-        ARGS --infer_model=${install_dir}/model --infer_data=${install_dir}/data.txt --refer_result=${install_dir}/result.txt)
+        ARGS --infer_model=${install_dir}/model --infer_data=${install_dir}/data.txt --refer_result=${install_dir}/result.txt --enable_bf16)
 endfunction()
 
 function(inference_analysis_api_test_build TARGET_NAME filename)
 	inference_analysis_test_build(${TARGET_NAME} SRCS ${filename}
         EXTRA_DEPS ${INFERENCE_EXTRA_DEPS})
+endfunction()
+
+function(inference_analysis_api_bfloat16_test target install_dir filename)
+    inference_analysis_test(${target} SRCS ${filename}
+        EXTRA_DEPS ${INFERENCE_EXTRA_DEPS}
+        ARGS --infer_model=${install_dir}/model --infer_data=${install_dir}/data.txt --refer_result=${install_dir}/result.txt --enable_bf16)
 endfunction()
 
 function(inference_analysis_api_int8_test_run TARGET_NAME test_binary model_dir data_path)
@@ -452,6 +458,9 @@ endif()
 set(BERT_INSTALL_DIR "${INFERENCE_DEMO_INSTALL_DIR}/bert_emb128")
 download_model_and_data(${BERT_INSTALL_DIR} "bert_emb128_model.tar.gz" "bert_data_len20.txt.tar.gz")
 inference_analysis_api_test(test_analyzer_bert ${BERT_INSTALL_DIR} analyzer_bert_tester.cc)
+
+# bert mkldnn bfloat16
+inference_analysis_api_bfloat16_test(test_analyzer_bert_bfloat16 ${BERT_INSTALL_DIR} analyzer_bert_bfloat16_tester.cc)
 
 if(WITH_GPU AND TENSORRT_FOUND)
     set(TRT_MODEL_INSTALL_DIR "${INFERENCE_DEMO_INSTALL_DIR}/trt_models")

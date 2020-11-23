@@ -875,6 +875,48 @@ void CompareBFloat16AndAnalysis(
   CompareAccuracy(bf16_outputs, analysis_outputs, compared_idx);
 }
 
+void CompareBfloat16AndAnalysisBert(
+    const PaddlePredictor::Config *config,
+    const PaddlePredictor::Config *mkldnn_config,
+    const PaddlePredictor::Config *bfloat_config,
+    const std::vector<std::vector<PaddleTensor>> &inputs) {
+  LOG(INFO) << "--- FP32 prediction start ---";
+  std::vector<std::vector<PaddleTensor>> analysis_outputs;
+  float sample_latency_analysis_fp32{-1};
+
+  if (FLAGS_enable_fp32) {
+    TestOneThreadPrediction(config, inputs, &analysis_outputs, true,
+                            VarType::FP32, &sample_latency_analysis_fp32);
+  }
+  LOG(INFO) << "--- MKLDNN FP32 prediction start ---";
+  std::vector<std::vector<PaddleTensor>> mkldnn_outputs;
+  float sample_latency_mkldnn_fp32{-1};
+
+  if (FLAGS_enable_fp32) {
+    TestOneThreadPrediction(mkldnn_config, inputs, &mkldnn_outputs, true,
+                            VarType::FP32, &sample_latency_mkldnn_fp32);
+  }
+  LOG(INFO) << "--- BF16 prediction start ---";
+  std::vector<std::vector<PaddleTensor>> bf16_outputs;
+  float sample_latency_mkldnn_bf16{-1};
+
+  if (FLAGS_enable_bf16) {
+    TestOneThreadPrediction(bfloat_config, inputs, &bf16_outputs, true,
+                            VarType::FP32, &sample_latency_mkldnn_bf16);
+  }
+  if (FLAGS_enable_fp32) {
+    SummarizePerformance("Analysis FP32", sample_latency_analysis_fp32);
+    SummarizePerformance("Mkldnn FP32", sample_latency_mkldnn_fp32);
+  }
+  if (FLAGS_enable_bf16)
+    SummarizePerformance("Mkldnn BF16", sample_latency_mkldnn_bf16);
+
+  if (FLAGS_enable_fp32)
+    CompareResult(analysis_outputs.back(), mkldnn_outputs.back());
+  if (FLAGS_enable_bf16)
+    CompareResult(analysis_outputs.back(), bf16_outputs.back());
+}
+
 void CompareAnalysisAndAnalysis(
     const AnalysisConfig *config1, const AnalysisConfig *config2,
     const std::vector<std::vector<PaddleTensor>> &inputs,

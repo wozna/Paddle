@@ -45,6 +45,9 @@ void AddQuantize(Graph* g, ir::Node* op, ir::Node* op_in,
                    std::vector<std::string>({quantize_out_node->Name()}));
   q_desc.SetAttr("Scale", 1.f);
   q_desc.SetAttr("bfloat16", true);
+  q_desc.SetAttr("output_format", op->Op()->HasAttr("data_layout")
+                                      ? op->Op()->GetAttr("data_layout")
+                                      : std::string("NCHW"));
   auto quantize_op = g->CreateOpNode(&q_desc);
 
   std::vector<std::string> input_names;
@@ -97,6 +100,9 @@ void AddQuantizes(Graph* g, ir::Node* op, int* quantize_counter) {
                      std::vector<std::string>({quantize_out_node_names[i]}));
     q_desc.SetAttr("Scale", 1.f);
     q_desc.SetAttr("bfloat16", true);
+    q_desc.SetAttr("output_format", op->Op()->HasAttr("data_layout")
+                                        ? op->Op()->GetAttr("data_layout")
+                                        : std::string("NCHW"));
     auto quantize_op = g->CreateOpNode(&q_desc);
 
     UnlinkNodes(inputs[i], op);
@@ -147,6 +153,7 @@ void RemoveUnnecessaryReorders(ir::Graph* graph, int* quantize_counter) {
     prev_op->Op()->SetInput(op_output_name,
                             std::vector<std::string>({quant_out->Name()}));
 
+    UnlinkNodes(prev_op, quant_in);
     IR_NODE_LINK_TO(prev_op, quant_out);
     GraphSafeRemoveNodes(graph, {quant_in, quant_op});
     (*quantize_counter)--;
