@@ -40,7 +40,6 @@ TEST(Analyzer_int8_image_classification, bfloat16) {
   SetInputs(&input_slots_all);
   q_cfg.SwitchIrDebug();
   q_cfg.EnableMkldnnBfloat16();
-  q_cfg.SetBfloat16Op({"conv2d"});
   CompareBFloat16AndAnalysis(&cfg, &q_cfg, input_slots_all);
 }
 
