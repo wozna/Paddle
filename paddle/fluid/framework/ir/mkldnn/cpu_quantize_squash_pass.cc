@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "paddle/fluid/framework/op_version_registry.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/string/pretty_log.h"
 
@@ -405,3 +406,14 @@ void CPUQuantizeSquashPass::ApplyImpl(ir::Graph* graph) const {
 
 REGISTER_PASS(cpu_quantize_squash_pass,
               paddle::framework::ir::CPUQuantizeSquashPass);
+
+REGISTER_PASS_CAPABILITY(cpu_quantize_squash_pass)
+    .AddCombination(
+        paddle::framework::compatible::OpVersionComparatorCombination().EQ(
+            "quantize", 2))
+    .AddCombination(
+        paddle::framework::compatible::OpVersionComparatorCombination().EQ(
+            "dequantize", 1))
+    .AddCombination(
+        paddle::framework::compatible::OpVersionComparatorCombination().EQ(
+            "requantize", 1));

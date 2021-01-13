@@ -45,6 +45,9 @@ class InferencePassTest(unittest.TestCase):
 
         self.enable_mkldnn = False
         self.enable_mkldnn_bfloat16 = False
+        self.enable_mkldnn_quantizer = False
+        self.warmup_data = None
+        self.quantizer_config = None
         self.enable_trt = False
         self.trt_parameters = None
         self.dynamic_shape_params = None
@@ -138,6 +141,11 @@ class InferencePassTest(unittest.TestCase):
             config.enable_mkldnn()
             if self.enable_mkldnn_bfloat16:
                 config.enable_mkldnn_bfloat16()
+            if self.enable_mkldnn_quantizer:
+                config.enable_quantizer()
+                self.quantizer_config = config.quantizer_config()
+                self.quantizer_config.set_quant_data(self.warmup_data)
+                self.quantizer_config.set_quant_batch_size(1)
 
         return config
 

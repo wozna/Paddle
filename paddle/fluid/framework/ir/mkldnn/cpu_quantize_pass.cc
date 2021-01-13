@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "paddle/fluid/framework/op_version_registry.h"
 #include "paddle/fluid/platform/mkldnn_helper.h"
 #include "paddle/fluid/string/pretty_log.h"
 
@@ -976,3 +977,11 @@ void CPUQuantizePass::ApplyImpl(ir::Graph* graph) const {
 
 REGISTER_PASS(cpu_quantize_pass, paddle::framework::ir::CPUQuantizePass)
     .RequirePassAttr("quant_var_scales");
+
+REGISTER_PASS_CAPABILITY(cpu_quantize_pass)
+    .AddCombination(
+        paddle::framework::compatible::OpVersionComparatorCombination().EQ(
+            "quantize", 2))
+    .AddCombination(
+        paddle::framework::compatible::OpVersionComparatorCombination().EQ(
+            "dequantize", 1));

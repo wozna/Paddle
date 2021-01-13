@@ -13,6 +13,7 @@
  *     limitations under the License. */
 
 #include "paddle/fluid/operators/requantize_op.h"
+#include "paddle/fluid/framework/op_version_registry.h"
 #ifdef PADDLE_WITH_MKLDNN
 #include "paddle/fluid/platform/mkldnn_helper.h"
 #endif
@@ -46,3 +47,10 @@ void ReQuantOpMaker::Make() {
 namespace ops = paddle::operators;
 
 REGISTER_OPERATOR(requantize, ops::ReQuantOp, ops::ReQuantOpMaker);
+
+REGISTER_OP_VERSION(requantize)
+    .AddCheckpoint(
+        R"ROC( Add a new attribute [Shift_in])ROC",
+        paddle::framework::compatible::OpVersionDesc()
+            .NewAttr("Shift_in", "Shift in data.", 0.0f)
+            .NewAttr("Shift_out", "Shift out data.", 0.0f));
