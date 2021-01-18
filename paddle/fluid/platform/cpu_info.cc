@@ -130,6 +130,8 @@ bool MayIUse(const cpu_isa_t cpu_isa) {
     case avx512_mic_4ops:
       return true && MayIUse(avx512_mic) && cpu.has(Cpu::tAVX512_4FMAPS) &&
              cpu.has(Cpu::tAVX512_4VNNIW);
+    case avx512_bf16:
+      return true && cpu.has(Cpu::tAVX512_BF16);
     case isa_any:
       return true;
   }
@@ -172,6 +174,10 @@ bool MayIUse(const cpu_isa_t cpu_isa) {
         unsigned int avx512vl_mask = (1 << 31);
         return ((reg[1] & avx512f_mask) && (reg[1] & avx512dq_mask) &&
                 (reg[1] & avx512bw_mask) && (reg[1] & avx512vl_mask));
+      } else if (cpu_isa == avx512_bf16) {
+        // AVX512BF16: ECX Bit 5
+        int avx512bf16_mask = (1 << 5);
+        return (reg[2] & avx512bf16_mask) != 0;
       }
     }
 #endif
