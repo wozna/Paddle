@@ -1369,6 +1369,7 @@ struct UnnecessaryReorders : public PatternBase {
   PATTERN_DECL_NODE(quant_in);
   PATTERN_DECL_NODE(quant_op);
   PATTERN_DECL_NODE(quant_out);
+  PATTERN_DECL_NODE(next_op);
 };
 
 // Pattern used for enforcing inplace computation for in-place computation

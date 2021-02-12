@@ -139,6 +139,7 @@ void RemoveUnnecessaryReorders(ir::Graph* graph, int* quantize_counter) {
     GET_IR_NODE_FROM_SUBGRAPH(quant_in, quant_in, unnecessary_reorders);
     GET_IR_NODE_FROM_SUBGRAPH(quant_op, quant_op, unnecessary_reorders);
     GET_IR_NODE_FROM_SUBGRAPH(quant_out, quant_out, unnecessary_reorders);
+    GET_IR_NODE_FROM_SUBGRAPH(next_op, next_op, unnecessary_reorders);
 
     std::string op_output_name;
     for (auto name : prev_op->Op()->OutputNames())
@@ -153,8 +154,10 @@ void RemoveUnnecessaryReorders(ir::Graph* graph, int* quantize_counter) {
     prev_op->Op()->SetOutput(op_output_name,
                              std::vector<std::string>({quant_out->Name()}));
 
-    IR_NODE_LINK_TO(prev_op, quant_out);
-    GraphSafeRemoveNodes(graph, {quant_in, quant_op});
+    UnlinkNodes(quant_in, quant_op);
+    UnlinkNodes(quant_out, next_op);
+    IR_NODE_LINK_TO(quant_in, next_op);
+    GraphSafeRemoveNodes(graph, {quant_op, quant_out});
     (*quantize_counter)--;
   };
   gpd(graph, handler);
@@ -200,9 +203,10 @@ void CPUBFloat16Pass::SetOutputDataType(ir::Graph* graph) const {
     GET_IR_NODE_FROM_SUBGRAPH(op, op, bfloat16_ops);
     GET_IR_NODE_FROM_SUBGRAPH(op_out, op_out, bfloat16_ops);
     GET_IR_NODE_FROM_SUBGRAPH(next_op, next_op, bfloat16_ops);
+    std::cout << op->Op()->Type() << "  -> " << next_op->Op()->Type() << std::endl;
     if ((op->Op()->HasAttr("force_fp32_output") ||
          op->Op()->HasProtoAttr("force_fp32_output")) &&
-        !op->Op()->GetAttrIfExists<bool>("fuse_residual_connection")) {
+        !op->Op()->GetAttrIfExists<bool>("fuse_residual_connection") && op_out->outputs.size() == 1) {
       op->Op()->SetAttr("force_fp32_output", true);
       force_fp32_counter++;
     } else if (op->Op()->Type() != "prior_box") {
@@ -246,7 +250,8 @@ void CPUBFloat16Pass::SetOutputDataType(ir::Graph* graph) const {
 
 void CPUBFloat16Pass::ApplyImpl(ir::Graph* graph) const {
   SetInputDataType(graph);
-  SetOutputDataType(graph);
+   SetOutputDataType(graph);
+
 }
 
 }  // namespace ir

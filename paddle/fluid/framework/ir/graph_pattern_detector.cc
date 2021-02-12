@@ -2202,8 +2202,8 @@ PDNode *patterns::Bfloat16Placement::operator()(
     const std::unordered_set<std::string> &bfloat16_enabled_op_types) {
   std::unordered_set<std::string> supported_op_types =
       std::unordered_set<std::string>(
-          {"concat", "conv2d", "elementwise_add", "elementwise_mul", "fc",
-           "fusion_gru", "gelu", "layer_norm", "matmul", "pool2d", "reshape2",
+          {"concat", "conv2d", "conv2d_transpose", "elementwise_add", "elementwise_mul", "fc",
+           "fusion_gru", "gelu", "layer_norm", "matmul", "pool2d", "relu", "reshape2",
            "softmax", "sum", "transpose2"});
   if (!bfloat16_enabled_op_types.empty()) {
     supported_op_types = bfloat16_enabled_op_types;
@@ -2253,7 +2253,7 @@ PDNode *patterns::LastBfloat16Ops::operator()() {
 
   auto *next_op = pattern->NewNode(next_op_repr())->assert_is_op();
   next_op->assert_more([&](Node *node) {
-    return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
+    return (!node->Op()->GetAttrIfExists<bool>("use_mkldnn") && node->Op()->Type() != "reshape2") || node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") !=
            "bfloat16";
   });
 
@@ -2304,11 +2304,16 @@ PDNode *patterns::UnnecessaryReorders::operator()() {
 
   auto *quant_out = pattern->NewNode(quant_out_repr())
                         ->assert_is_op_output("quantize", "Output");
-
+  auto next_op = pattern->NewNode(next_op_repr())->assert_is_op();
+  next_op->assert_more([&](Node *node) {
+    return node->Op()->GetAttrIfExists<std::string>("mkldnn_data_type") ==
+           "bfloat16";
+  });
   prev_op->LinksTo({quant_in});
   quant_op->LinksFrom({quant_in}).LinksTo({quant_out});
+  next_op->LinksFrom({quant_out});
 
-  return quant_out;
+  return next_op;
 }
 
 PDNode *patterns::MKLDNNInPlace::operator()() {
