@@ -29,7 +29,8 @@ paddle.enable_static()
 def train(use_cuda, save_dirname, is_local, use_bf16):
     x = fluid.layers.data(name='x', shape=[13], dtype='float32')
 
-    y_predict = fluid.layers.fc(input=x, size=1, act=None)
+    with paddle.static.amp.bf16_guard():
+        y_predict = fluid.layers.fc(input=x, size=1, act=None)
 
     y = fluid.layers.data(name='y', shape=[1], dtype='float32')
 
@@ -37,8 +38,32 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
     avg_cost = fluid.layers.mean(cost)
 
     sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.001)
+    # sgd_optimizer = paddle.optimizer.AdamW(
+    #     learning_rate=0.001,
+    #     epsilon=1e-8,
+    #     weight_decay=0.0,)
+
+    # sgd_optimizer = paddle.optimizer.Momentum(
+    #     learning_rate=0.001,
+    #     momentum=0.9,
+    #     use_nesterov=False,
+    #     weight_decay=fluid.regularizer.L2Decay(1e-4),)
+
     if use_bf16:
-        paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
+        sgd_optimizer = paddle.static.amp.bf16.decorate(
+            sgd_optimizer,
+            amp_lists=paddle.static.amp.bf16.AutoMixedPrecisionListsBF16(
+                custom_bf16_list={'elementwise_mul', 'reshape'},
+                # custom_bf16_list={'elementwise_mul', 'reshape', 'lookup_table'},
+                # custom_fp32_list={'sum', 'mul', 'elementwise_sub','square'}
+                custom_fp32_list={
+                    'sum', 'mul', 'elementwise_sub', 'square', 'mean', 'sgd',
+                    'fill_constant'
+                }),
+            use_bf16_guard=False,
+            use_pure_bf16=True)
+        # paddle.static.amp.cast_model_to_bf16(fluid.default_main_program())
+        # paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
     sgd_optimizer.minimize(avg_cost)
 
     BATCH_SIZE = 20
@@ -54,6 +79,10 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
     def train_loop(main_program):
         feeder = fluid.DataFeeder(place=place, feed_list=[x, y])
         exe.run(fluid.default_startup_program())
+        with open("./fit_a_line_main_program.prototxt", 'w+') as f:
+            f.write(str(paddle.static.default_main_program()))
+
+        sgd_optimizer.amp_init(exe.place)
 
         PASS_NUM = 100
         for pass_id in range(PASS_NUM):

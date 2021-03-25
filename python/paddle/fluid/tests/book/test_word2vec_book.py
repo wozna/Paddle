@@ -107,7 +107,10 @@ def train(target,
 
     sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.001)
     if use_bf16:
-        paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
+        paddle.static.amp.rewrite_program_bf16(
+            fluid.default_main_program(),
+            paddle.static.amp.AutoMixedPrecisionListsBF16(
+                custom_bf16_list={'elementwise_mul', 'lookup_table'}))
     sgd_optimizer.minimize(avg_cost)
 
     train_reader = paddle.batch(
@@ -121,6 +124,8 @@ def train(target,
 
     def train_loop(main_program):
         exe.run(fluid.default_startup_program())
+        with open("./word2vec_main_program.prototxt", 'w+') as f:
+            f.write(str(paddle.static.default_main_program()))
 
         for pass_id in range(PASS_NUM):
             for data in train_reader():
@@ -303,10 +308,10 @@ def inject_test_method(target, is_sparse, is_parallel, use_bf16=False):
     setattr(W2VTest, fn_name, fn)
 
 
-for target in ("cuda", "cpu", "xpu"):
-    for is_sparse in (False, True):
-        for is_parallel in (False, ):
-            inject_test_method(target, is_sparse, is_parallel)
+# for target in ("cuda", "cpu", "xpu"):
+#     for is_sparse in (False, True):
+#         for is_parallel in (False, ):
+#             inject_test_method(target, is_sparse, is_parallel)
 inject_test_method("cpu", False, False, use_bf16=True)
 
 if __name__ == '__main__':

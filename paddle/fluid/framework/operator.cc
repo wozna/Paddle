@@ -19,6 +19,7 @@ limitations under the License. */
 #include <string>
 
 #include "gflags/gflags.h"
+#include "operator.h"
 #include "paddle/fluid/framework/data_transform.h"
 #include "paddle/fluid/framework/data_type_transform.h"
 #include "paddle/fluid/framework/details/nan_inf_utils.h"
@@ -1051,7 +1052,8 @@ bool OperatorWithKernel::SupportsMKLDNN(
 bool OperatorWithKernel::CanMKLDNNBeUsed(const framework::ExecutionContext& ctx,
                                          proto::VarType::Type data_type) const {
   bool use_mkldnn_ctx =
-      ctx.Attr<bool>("use_mkldnn") && platform::is_cpu_place(ctx.GetPlace());
+      (ctx.Attr<bool>("use_mkldnn") || data_type == proto::VarType::BF16) &&
+      platform::is_cpu_place(ctx.GetPlace());
   return use_mkldnn_ctx && this->SupportsMKLDNN(data_type);
 }
 
