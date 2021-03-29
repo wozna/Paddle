@@ -38,31 +38,20 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
     avg_cost = fluid.layers.mean(cost)
 
     sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.001)
-    # sgd_optimizer = paddle.optimizer.AdamW(
-    #     learning_rate=0.001,
-    #     epsilon=1e-8,
-    #     weight_decay=0.0,)
-
-    # sgd_optimizer = paddle.optimizer.Momentum(
-    #     learning_rate=0.001,
-    #     momentum=0.9,
-    #     use_nesterov=False,
-    #     weight_decay=fluid.regularizer.L2Decay(1e-4),)
 
     if use_bf16:
         sgd_optimizer = paddle.static.amp.bf16.decorate(
             sgd_optimizer,
             amp_lists=paddle.static.amp.bf16.AutoMixedPrecisionListsBF16(
-                custom_bf16_list={'elementwise_mul', 'reshape'},
-                # custom_bf16_list={'elementwise_mul', 'reshape', 'lookup_table'},
-                # custom_fp32_list={'sum', 'mul', 'elementwise_sub','square'}
+                custom_bf16_list={
+                    'elementwise_mul', 'reshape', 'lookup_table'
+                },
                 custom_fp32_list={
                     'sum', 'mul', 'elementwise_sub', 'square', 'mean', 'sgd',
                     'fill_constant'
                 }),
             use_bf16_guard=False,
             use_pure_bf16=True)
-        # paddle.static.amp.cast_model_to_bf16(fluid.default_main_program())
         # paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
     sgd_optimizer.minimize(avg_cost)
 
