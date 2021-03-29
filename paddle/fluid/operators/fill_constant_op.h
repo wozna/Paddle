@@ -103,7 +103,10 @@ class FillConstantKernel : public framework::OpKernel<T> {
     platform::DeviceContextPool &pool = platform::DeviceContextPool::Instance();
     auto &dev_ctx = *pool.Get(ctx.GetPlace());
     int actual_place = place_type;
-
+    bool is_bfloat16 =
+        (data_type == framework::proto::VarType::BF16) ? true : false;
+    std::cout << " I am in the fill constant ------------------------     "
+              << (is_bfloat16 ? " BF16 data type \n" : "FP32  data type\n");
     if (actual_place == -1) {
       bool cpu_place = force_cpu || ctx.GetPlace() == platform::CPUPlace();
       if (cpu_place) {
@@ -113,6 +116,12 @@ class FillConstantKernel : public framework::OpKernel<T> {
       } else if (platform::is_xpu_place(ctx.GetPlace())) {
         actual_place = 3;
       }
+    }
+
+    if (data_type == framework::proto::VarType::BF16 && actual_place != 0) {
+      PADDLE_THROW(platform::errors::PreconditionNotMet(
+          "The Bfloat16 type has been introduced and it is not supported by "
+          "GPU or XPU. Change the \"place_type\" attribute to CPU"));
     }
 
     if (actual_place == 0) {
