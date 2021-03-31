@@ -17,6 +17,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/selected_rows.h"
 #include "paddle/fluid/operators/jit/kernels.h"
+#include "paddle/fluid/platform/bfloat16.h"
 
 namespace paddle {
 namespace operators {
@@ -26,11 +27,6 @@ class SGDOpKernel : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext &ctx) const override;
 };
-
-template <typename T>
-constexpr bool IsBfloat16() {
-  return std::is_same<T, paddle::platform::bfloat16>::value;
-}
 
 template <typename T>
 class SGDOpKernel<platform::CPUDeviceContext, T>
@@ -196,7 +192,7 @@ class SGDOpKernel<platform::CPUDeviceContext, platform::bfloat16>
 
     const auto *param_var = ctx.InputVar("Param");
     const auto *grad_var = ctx.InputVar("Grad");
-    //     std::cout << "SGD BF16 Compute"<< std::endl;
+
     if (param_var->IsType<framework::LoDTensor>()) {
       const auto *param = ctx.Input<framework::Tensor>("Param");
       auto *param_out = ctx.Output<framework::Tensor>("ParamOut");

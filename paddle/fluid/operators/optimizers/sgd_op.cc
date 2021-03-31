@@ -14,6 +14,7 @@ limitations under the License. */
 
 #include "paddle/fluid/operators/optimizers/sgd_op.h"
 #include <string>
+
 namespace paddle {
 namespace operators {
 
