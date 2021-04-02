@@ -61,23 +61,34 @@ class CastOp : public framework::OperatorWithKernel {
   void InferShape(framework::InferShapeContext *context) const override {
     OP_INOUT_CHECK(context->HasInput("X"), "Input", "X", "cast");
     OP_INOUT_CHECK(context->HasOutput("Out"), "Output", "Out", "cast");
+    auto type = context->GetInputsVarType("X")[0];
     context->SetOutputDim("Out", context->GetInputDim("X"));
-    context->ShareLoD("X", "Out");
+    if (type == framework::proto::VarType::LOD_TENSOR) {
+      context->ShareLoD("X", /*->*/ "Out");
+    }
+    //    context->ShareLoD("X", "Out");
   }
 
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext &ctx) const override {
     // CastOp kernel's device type is decided by input tensor place
-    auto *tensor = ctx.Input<framework::LoDTensor>("X");
-    PADDLE_ENFORCE_EQ(tensor->IsInitialized(), true,
-                      platform::errors::PreconditionNotMet(
-                          "The tensor of Input(X) is not initialized."));
-    auto &tensor_place = tensor->place();
-    // NOTE: cuda pinned tensor need to copy its data to target place
-    if (platform::is_cuda_pinned_place(tensor_place)) {
-      return framework::OpKernelType(tensor->type(), ctx.device_context());
+    const auto *input_var = ctx.InputVar("X");
+    if (input_var->IsType<framework::LoDTensor>()) {
+      auto *tensor = ctx.Input<framework::LoDTensor>("X");
+      PADDLE_ENFORCE_EQ(tensor->IsInitialized(), true,
+                        platform::errors::PreconditionNotMet(
+                            "The tensor of Input(X) is not initialized."));
+      auto &tensor_place = tensor->place();
+      // NOTE: cuda pinned tensor need to copy its data to target place
+      if (platform::is_cuda_pinned_place(tensor_place)) {
+        return framework::OpKernelType(tensor->type(), ctx.device_context());
+      }
+      return framework::OpKernelType(tensor->type(), tensor_place);
     }
-    return framework::OpKernelType(tensor->type(), tensor_place);
+    const auto &tensor = input_var->Get<framework::SelectedRows>();
+    auto &tensor_place = tensor.place();
+    return framework::OpKernelType(
+        OperatorWithKernel::IndicateVarDataType(ctx, "X"), tensor_place);
   }
 };
 

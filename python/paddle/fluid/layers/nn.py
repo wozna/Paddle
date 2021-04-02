@@ -12418,7 +12418,9 @@ def mean(x, name=None):
         return core.ops.mean(x)
 
     helper = LayerHelper("mean", **locals())
-    check_variable_and_dtype(x, 'x', ['float16', 'float32', 'float64'], 'mean')
+    check_variable_and_dtype(
+        x, 'x', ['float16', 'float32', 'float64', 'uint16'], 'mean')
+    # check_variable_and_dtype(x, 'x', ['float16', 'float32', 'float64'], 'mean')
     out = helper.create_variable_for_type_inference(dtype=x.dtype)
 
     helper.append_op(
