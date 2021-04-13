@@ -47,7 +47,7 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
             amp_lists=paddle.static.amp.bf16.AutoMixedPrecisionListsBF16(
                 custom_bf16_list={
                     # 'elementwise_mul', 'reshape'
-                    # 'elementwise_mul', 'reshape', 'lookup_table'
+                    'elementwise_mul', 'reshape', 'lookup_table'
                 },
                 custom_fp32_list={
                     # 'mul', 'elementwise_add', 'elementwise_sub', 'square', 'mean',
@@ -58,7 +58,11 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
                     # 'mul', 'elementwise_sub', 'square', 'mean', 'sgd',
                     # 'sum', 'mul', 'elementwise_sub', 'square', 'mean', 'sgd',
                     # 'fill_constant'
-                }),
+                },
+                custom_fp32_varnames = {
+                    "fc_0.b_0"
+                }
+            ),
             use_bf16_guard=True,
             use_pure_bf16=True)
         # paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
@@ -85,6 +89,7 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
             f.write(str(paddle.static.default_main_program()))
 
         PASS_NUM = 100
+        # PASS_NUM = 100
         for pass_id in range(PASS_NUM):
             for data in train_reader():
                 avg_loss_value, = exe.run(main_program,
@@ -93,20 +98,23 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
                 print(avg_loss_value[0])
                 if avg_loss_value[0] < 10.0:
                     print(pass_id, "mniej niz 10")
-                    return
+                    # return
                     # if save_dirname is not None:
                     #     fluid.io.save_inference_model(save_dirname, ['x'],
                     #                                   [y_predict], exe)
                     return
                 if math.isnan(float(avg_loss_value)):
                     sys.exit("got NaN loss, training failed.")
-                return
+                # return
         print("przed raise", avg_loss_value)
         raise AssertionError("Fit a line cost is too large, {0:2.2}".format(
             avg_loss_value[0]))
 
     if is_local:
         print("is local")
+        seed = 90
+        fluid.default_startup_program().random_seed = seed
+        fluid.default_main_program().random_seed = seed
         train_loop(fluid.default_main_program())
     else:
         port = os.getenv("PADDLE_PSERVER_PORT", "6174")

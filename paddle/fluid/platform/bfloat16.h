@@ -183,6 +183,14 @@ HOSTDEVICE inline bfloat16 operator*(const bfloat16& a, const bfloat16& b) {
   return bfloat16(static_cast<float>(a) * static_cast<float>(b));
 }
 
+HOSTDEVICE inline bfloat16 operator*(const float& a, const bfloat16& b) {
+  return bfloat16(a * static_cast<float>(b));
+}
+
+HOSTDEVICE inline bfloat16 operator*(const bfloat16& a, const float& b) {
+ return bfloat16(static_cast<float>(a) * b);
+}
+
 HOSTDEVICE inline bfloat16 operator/(const bfloat16& a, const bfloat16& b) {
   return bfloat16(static_cast<float>(a) / static_cast<float>(b));
 }
@@ -209,6 +217,18 @@ HOSTDEVICE inline bfloat16& operator*=(bfloat16& a,  // NOLINT
                                        const bfloat16& b) {
   a = bfloat16(static_cast<float>(a) * static_cast<float>(b));
   return a;
+}
+
+HOSTDEVICE inline float& operator*=(float& a,  // NOLINT
+                                       const bfloat16& b) {
+  a = static_cast<float>(a) * static_cast<float>(b);
+  return a;
+}
+
+HOSTDEVICE inline bfloat16& operator*=(bfloat16& a,  // NOLINT
+                                       const float& b) {
+ a = bfloat16(static_cast<float>(a) * b);
+ return a;
 }
 
 HOSTDEVICE inline bfloat16& operator/=(bfloat16& a,  // NOLINT

@@ -345,7 +345,8 @@ class ReshapeKernel {
   void operator()(const framework::ExecutionContext &ctx) const {
     auto *out = ctx.Output<framework::LoDTensor>("Out");
     auto *in = ctx.Input<framework::LoDTensor>("X");
-
+//    if (in->type()== framework::proto::VarType::BF16)
+//      std::cout << "Reshape BF16 Compute"<< std::endl;
     framework::DDim out_dims = out->dims();
 
     auto list_new_shape_tensor =
