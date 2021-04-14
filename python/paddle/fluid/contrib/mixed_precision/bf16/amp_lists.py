@@ -47,6 +47,7 @@ class AutoMixedPrecisionListsBF16(object):
         self.bf16_list = copy.copy(bf16_list)
         self.fp32_list = copy.copy(fp32_list)
         self.gray_list = copy.copy(gray_list)
+        self.bf16_initializer_list = copy.copy(bf16_initializer_list)
         self.unsupported_list = copy.copy(unsupported_list)
         self.fp32_varnames = copy.copy(custom_fp32_varnames)
         self._update_list()
@@ -78,13 +79,15 @@ class AutoMixedPrecisionListsBF16(object):
 
 
 # always bf16
-bf16_list = {'elementwise_add', }
+bf16_list = {'elementwise_add', 'fill_constant'}
 
 # depends on the prev_op type
 gray_list = {
     'reshape2',
     'lookup_table',
 }
+
+bf16_initializer_list = {'fill_constant'}
 
 unsupported_list = unsupported_fp16_list.copy().copy()
 fp32_list = black_list_fp16.copy().copy()
