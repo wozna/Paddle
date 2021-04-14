@@ -38,7 +38,8 @@ def train(use_cuda, save_dirname, is_local, use_bf16):
 
     sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.001)
     if use_bf16:
-        paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
+        paddle.static.amp.rewrite_program_bf16(fluid.default_main_program(),
+                                               fluid.default_startup_program())
     sgd_optimizer.minimize(avg_cost)
 
     BATCH_SIZE = 20

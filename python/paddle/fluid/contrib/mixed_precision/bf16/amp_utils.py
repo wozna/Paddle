@@ -191,7 +191,46 @@ def bf16_guard():
         yield
 
 
-def rewrite_program_bf16(main_prog, amp_lists=None, use_bf16_guard=False):
+def correct_post_op(post_ops, keep_fp32_ops):
+    for post_op in post_ops:
+        for op in post_op:
+            if op.type in keep_fp32_ops:
+                return False
+    return True
+
+
+def cast_initializers_to_bf16(startup_prog, amp_lists, block, all_ops,
+                              keep_fp32_ops):
+    prepend_ops = startup_prog.global_block().ops
+    for op in prepend_ops:
+        if str(op.type) in amp_lists.bf16_initializer_list:
+            change_op = True
+            op_post_ops = []
+            op_out_vars = []
+            for out_name in op.output_names:
+                for out_var_name in op.output(out_name):
+                    out_var = block.var(out_var_name)
+                    post_op = find_true_post_op(all_ops, op, out_var_name, True)
+
+                    if out_var is None or out_var.type not in _valid_types:
+                        change_op = False
+                        break
+                    op_post_ops.append(post_op)
+                    op_out_vars.append(out_var)
+
+            if change_op and correct_post_op(op_post_ops, keep_fp32_ops):
+                for out_var in op_out_vars:
+                    if out_var.dtype == core.VarDesc.VarType.FP32:
+                        out_var.desc.set_dtype(core.VarDesc.VarType.BF16)
+                if op.has_attr('dtype') and op.attr(
+                        'dtype') == core.VarDesc.VarType.FP32:
+                    op._set_attr('dtype', core.VarDesc.VarType.BF16)
+
+
+def rewrite_program_bf16(main_prog,
+                         startup_prog,
+                         amp_lists=None,
+                         use_bf16_guard=False):
     """
     Traverse all ops in current block and insert cast op according to
     which set current op belongs to.
@@ -270,6 +309,9 @@ def rewrite_program_bf16(main_prog, amp_lists=None, use_bf16_guard=False):
             # For numerical safe, we apply fp32 computation on ops that
             # are not determined which list they should stay.
             fp32_op_set.add(op)
+
+    # Find all the initializers before bf16 ops and change their type to bf16
+    cast_initializers_to_bf16(startup_prog, amp_lists, block, ops, fp32_op_set)
 
     idx = 0
     while idx < len(ops):

@@ -58,8 +58,9 @@ class TestModelCastBF16(unittest.TestCase):
         exe = fluid.Executor(core.CPUPlace())
         exe.run(fluid.default_startup_program())
         prog = fluid.default_main_program()
+        startup_prog = fluid.default_startup_program()
         if amp_fun is not None:
-            amp_fun(prog)
+            amp_fun(prog, startup_prog)
         return exe.run(prog,
                        feed=feed,
                        fetch_list=fetch_list,
@@ -103,7 +104,7 @@ class TestModelCastBF16(unittest.TestCase):
                     'tt_bf16': nn_bf16,
                 },
                 fetch_list=[ret_bf16, ret, ret_fp32bf16],
-                amp_fun=lambda prog: amp.rewrite_program_bf16(prog, use_bf16_guard=True))
+                amp_fun=lambda prog, startup_prog: amp.rewrite_program_bf16(prog, startup_prog, use_bf16_guard=True))
 
         self.assertTrue(np.allclose(static_ret_bf16, static_ret, 1e-2))
         self.assertTrue(np.allclose(static_ret_bf16, ret_fp32bf16, 1e-2))
@@ -122,8 +123,9 @@ class TestModelCastBF16(unittest.TestCase):
                 self.get_static_graph_result(
                     feed={'t': n, 'tt': nn},
                     fetch_list=[ret],
-                    amp_fun=lambda prog: amp.rewrite_program_bf16(
+                    amp_fun=lambda prog, startup_prog: amp.rewrite_program_bf16(
                         prog,
+                        startup_prog,
                         amp.AutoMixedPrecisionListsBF16(
                             custom_fp32_varnames={'elementwise_add_0.tmp_0'}),
                         use_bf16_guard=True

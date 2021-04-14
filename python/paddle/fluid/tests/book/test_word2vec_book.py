@@ -58,25 +58,37 @@ def train(target,
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
         embed_second = fluid.layers.embedding(
             input=words[1],
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
         embed_third = fluid.layers.embedding(
             input=words[2],
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
         embed_forth = fluid.layers.embedding(
             input=words[3],
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
 
         concat_embed = fluid.layers.concat(
             input=[embed_first, embed_second, embed_third, embed_forth], axis=1)
@@ -107,7 +119,8 @@ def train(target,
 
     sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.001)
     if use_bf16:
-        paddle.static.amp.rewrite_program_bf16(fluid.default_main_program())
+        paddle.static.amp.rewrite_program_bf16(fluid.default_main_program(),
+                                               fluid.default_startup_program())
     sgd_optimizer.minimize(avg_cost)
 
     train_reader = paddle.batch(
@@ -300,14 +313,16 @@ def inject_test_method(target, is_sparse, is_parallel, use_bf16=False):
         fn = unittest.skipUnless(
             condition=FULL_TEST, reason=SKIP_REASON)(__impl__)
 
-    setattr(W2VTest, fn_name, fn)
+    setattr(W2VTest, fn_name, __impl__)
 
 
-for target in ("cuda", "cpu", "xpu"):
-    for is_sparse in (False, True):
-        for is_parallel in (False, ):
-            inject_test_method(target, is_sparse, is_parallel)
 inject_test_method("cpu", False, False, use_bf16=True)
+
+# for target in ("cuda", "cpu", "xpu"):
+#     for is_sparse in (False, True):
+#         for is_parallel in (False, ):
+#             inject_test_method(target, is_sparse, is_parallel)
+# inject_test_method("cpu", False, False, use_bf16=True)
 
 if __name__ == '__main__':
     unittest.main()
