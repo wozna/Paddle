@@ -58,25 +58,37 @@ def train(target,
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
         embed_second = fluid.layers.embedding(
             input=words[1],
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
         embed_third = fluid.layers.embedding(
             input=words[2],
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
         embed_forth = fluid.layers.embedding(
             input=words[3],
             size=[dict_size, EMBED_SIZE],
             dtype='float32',
             is_sparse=IS_SPARSE,
-            param_attr='shared_w')
+            #param_attr='shared_w')
+            param_attr=fluid.ParamAttr(
+                name='shared_w',
+                initializer=fluid.initializer.Constant(value=0.0)))
 
         concat_embed = fluid.layers.concat(
             input=[embed_first, embed_second, embed_third, embed_forth], axis=1)
@@ -305,7 +317,7 @@ def inject_test_method(target, is_sparse, is_parallel, use_bf16=False):
         fn = unittest.skipUnless(
             condition=FULL_TEST, reason=SKIP_REASON)(__impl__)
 
-    setattr(W2VTest, fn_name, fn)
+    setattr(W2VTest, fn_name, __impl__)
 
 
 # for target in ("cuda", "cpu", "xpu"):

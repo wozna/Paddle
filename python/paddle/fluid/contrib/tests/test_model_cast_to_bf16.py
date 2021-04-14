@@ -68,8 +68,9 @@ class TestModelCastBF16(unittest.TestCase):
         exe = fluid.Executor(core.CPUPlace())
         exe.run(fluid.default_startup_program())
         prog = fluid.default_main_program()
+        startup_prog = fluid.default_startup_program()
         if amp_fun is not None:
-            amp_fun(prog)
+            amp_fun(prog, startup_prog)
         return exe.run(prog,
                        feed=feed,
                        fetch_list=fetch_list,
