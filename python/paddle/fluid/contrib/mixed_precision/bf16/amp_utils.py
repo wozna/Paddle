@@ -128,8 +128,8 @@ def _insert_cast_op(block, op, idx, src_dtype, dest_dtype):
                     continue
                 if out_var.dtype == core.VarDesc.VarType.FP32:
                     out_var.desc.set_dtype(core.VarDesc.VarType.BF16)
-                    if op.has_attr('out_dtype'):
-                        op._set_attr('out_dtype', core.VarDesc.VarType.BF16)
+                if op.has_attr('out_dtype'):
+                    op._set_attr('out_dtype', core.VarDesc.VarType.BF16)
     return num_cast_ops
 
 
@@ -235,7 +235,7 @@ def bf16_guard():
 def are_post_ops_bf16(post_ops, keep_fp32_ops):
     for post_op in post_ops:
         for op in post_op:
-            if op.type in keep_fp32_ops:
+            if op in keep_fp32_ops:
                 return False
     return True
 
@@ -443,9 +443,12 @@ def cast_parameters_to_bf16(place, program, scope=None, to_bf16_var_names=None):
     for param in all_parameters:
         if param.name in bf16_var_names:
             _logger.debug("---- cast {} to bf16 dtype ----".format(param.name))
+            print("---- cast {} to bf16 dtype ----".format(param.name))
             param_t = var_scope.find_var(param.name).get_tensor()
             data = np.array(param_t)
+            print(data.shape)
             param_t.set(convert_float_to_uint16(data), place)
+            print(param_t)
 
 
 def rewrite_program_bf16(main_prog, amp_lists=None):

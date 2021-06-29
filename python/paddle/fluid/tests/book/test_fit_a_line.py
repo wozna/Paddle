@@ -16,6 +16,7 @@ from __future__ import print_function
 
 import paddle
 import paddle.fluid as fluid
+from paddle.fluid.dygraph.jit import save
 import paddle.static.amp as amp
 
 import contextlib
@@ -24,8 +25,27 @@ import unittest
 import math
 import sys
 import os
+import numpy as np
+import struct
+from tb_paddle import SummaryWriter
 
 paddle.enable_static()
+
+
+def collect_vars():
+    all_params = list(fluid.default_main_program().list_vars())
+    weight_names_list = [
+        p.name for p in all_params
+    ]
+    return weight_names_list
+
+
+def convert_uint16_to_float(in_list):
+    in_list = np.asarray(in_list)
+    out = np.vectorize(
+        lambda x: struct.unpack('<f', struct.pack('<I', x << 16))[0],
+        otypes=[np.float32])(in_list.flat)
+    return np.reshape(out, in_list.shape)
 
 
 def train(use_cuda, save_dirname, is_local, use_bf16, pure_bf16):
@@ -48,7 +68,7 @@ def train(use_cuda, save_dirname, is_local, use_bf16, pure_bf16):
         cost = fluid.layers.square_error_cost(input=y_predict, label=y)
         avg_cost = fluid.layers.mean(cost)
 
-    sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.001)
+    sgd_optimizer = fluid.optimizer.SGD(learning_rate=0.01)
 
     if use_bf16:
         sgd_optimizer = amp.bf16.decorate_bf16(
@@ -56,10 +76,14 @@ def train(use_cuda, save_dirname, is_local, use_bf16, pure_bf16):
             amp_lists=amp.bf16.AutoMixedPrecisionListsBF16(),
             use_bf16_guard=False,
             use_pure_bf16=pure_bf16)
-    sgd_optimizer.minimize(
-        avg_cost, startup_program=fluid.default_startup_program())
 
-    BATCH_SIZE = 20
+    with_initializer = True
+    BATCH_SIZE = 10
+    if with_initializer:
+        sgd_optimizer.minimize(
+            avg_cost, startup_program=fluid.default_startup_program())
+    else:
+        sgd_optimizer.minimize(avg_cost)
 
     train_reader = paddle.batch(
         paddle.reader.shuffle(
@@ -69,6 +93,15 @@ def train(use_cuda, save_dirname, is_local, use_bf16, pure_bf16):
     place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
     exe = fluid.Executor(place)
 
+    # define writer to file
+    detail_string = "_use_bf16_is_{}_and_pure_bf16_is_{}_bs_is_{}".format(
+        str(use_bf16), str(pure_bf16), str(BATCH_SIZE))
+    if pure_bf16:
+        detail_string = detail_string + "_initializer_is_" + str(
+            with_initializer)
+    train_writer = SummaryWriter(
+        logdir="tb_log/fit_a_line_train" + detail_string)
+
     def train_loop(main_program):
         feeder = fluid.DataFeeder(place=place, feed_list=[x, y])
         exe.run(fluid.default_startup_program())
@@ -77,14 +110,30 @@ def train(use_cuda, save_dirname, is_local, use_bf16, pure_bf16):
             sgd_optimizer.amp_init(
                 exe.place, test_program=test_prog, use_bf16_test=True)
 
+        weight_names_list = collect_vars()
+        # add paddle graph to Tensorboard
+        train_writer.add_paddle_graph(main_program)
+
         PASS_NUM = 100
         for pass_id in range(PASS_NUM):
             for data in train_reader():
-                avg_loss_value, = exe.run(main_program,
-                                          feed=feeder.feed(data),
-                                          fetch_list=[avg_cost])
-                if avg_loss_value[0] < 10.0 or pure_bf16:
+                metrics = exe.run(main_program,
+                                  feed=feeder.feed(data),
+                                  fetch_list=[avg_cost] + weight_names_list)
+
+                avg_loss_value = metrics[0]
+                weights = metrics[1:]
+                train_writer.add_scalar('train/loss', avg_loss_value, pass_id)
+                for w, wname in zip(weights, weight_names_list):
+                    if w.dtype == "uint16":
+                        w = convert_uint16_to_float(np.array(w))
+                    flatten_w = w.flatten()
+                    train_writer.add_histogram('train/' + wname,
+                                               flatten_w, pass_id)
+
+                if avg_loss_value[0] < 3:
                     if save_dirname is not None:
+                        print("Save dir: " + str(save_dirname))
                         paddle.static.save_inference_model(save_dirname, [x],
                                                            [y_predict], exe)
                     return
@@ -151,6 +200,8 @@ def infer(use_cuda, save_dirname=None, use_bf16=False):
         results = exe.run(inference_program,
                           feed={feed_target_names[0]: numpy.array(test_feat)},
                           fetch_list=fetch_targets)
+        if use_bf16:
+            results = convert_uint16_to_float(results)
         print("infer shape: ", results[0].shape)
         print("infer results: ", results[0])
         print("ground truth: ", test_label)
@@ -165,6 +216,11 @@ def main(use_cuda, is_local=True, use_bf16=False, pure_bf16=False):
 
     # Directory for saving the trained model
     save_dirname = "fit_a_line.inference.model"
+
+    if use_bf16:
+        save_dirname = save_dirname + ".bf16"
+    if pure_bf16:
+        save_dirname = save_dirname + ".pure_mode"
 
     train(use_cuda, save_dirname, is_local, use_bf16, pure_bf16)
     infer(use_cuda, save_dirname, use_bf16)
@@ -195,10 +251,12 @@ class TestFitALine(TestFitALineBase):
                  "place does not support BF16 evaluation")
 class TestFitALineBF16(TestFitALineBase):
     def test_bf16(self):
+        print("Rewrite program")
         with self.program_scope_guard():
             main(use_cuda=False, use_bf16=True)
 
     def test_pure_bf16(self):
+        print("Pure mode")
         with self.program_scope_guard():
             main(use_cuda=False, use_bf16=True, pure_bf16=True)
 
